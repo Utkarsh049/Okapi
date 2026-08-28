@@ -1,0 +1,29 @@
+name: okapi-test
+
+# Ephemeral Postgres + OPA for integration tests. No named volumes; data lives in
+# tmpfs and is discarded on `down`.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: okapi
+      POSTGRES_PASSWORD: okapi
+      POSTGRES_DB: okapi_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U okapi -d okapi_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  opa:
+    image: openpolicyagent/opa:latest-rootless
+    command: ["run", "--server", "--addr=0.0.0.0:8181", "/policies"]
+    volumes:
+      - ../packages/policies:/policies:ro
+    ports:
+      - "58181:8181"

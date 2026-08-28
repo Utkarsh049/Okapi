@@ -1,0 +1,61 @@
+name: okapi
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: okapi
+      POSTGRES_PASSWORD: okapi
+      POSTGRES_DB: okapi
+    ports:
+      - "5432:5432"
+    volumes:
+      - okapi_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U okapi -d okapi"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [okapi_net]
+
+  opa:
+    image: openpolicyagent/opa:latest-rootless
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "--log-level=info"
+      - "/policies"
+    volumes:
+      - ../packages/policies:/policies:ro
+    ports:
+      - "8181:8181"
+    healthcheck:
+      test: ["CMD", "/opa", "eval", "--fail", "--data=/policies", "data.okapi.authz.allow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [okapi_net]
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    environment:
+      OKAPI_DATABASE_URL: postgresql+psycopg://okapi:okapi@db:5432/okapi
+      OKAPI_OPA_URL: http://opa:8181
+      OKAPI_JWT_SECRET: dev-only-not-a-real-secret
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+    networks: [okapi_net]
+
+volumes:
+  okapi_pgdata:
+
+networks:
+  okapi_net:

@@ -1,2 +1,20 @@
 .commandcode
+
+# Python
 __pycache__/
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local secrets / env
+.env
+.env.*
+!.env.example

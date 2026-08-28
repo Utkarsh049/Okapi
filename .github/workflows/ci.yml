@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv python install
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run black --check .
+      - run: uv run mypy
+      - run: uv run pytest
+
+  policies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: open-policy-agent/setup-opa@v2
+      - run: opa fmt --list packages/policies
+      - run: opa test packages/policies -v

@@ -1,0 +1,18 @@
+"""SQLAlchemy async engine + session factory — the only place a ``Session`` is created.
+
+Provided to repositories via FastAPI ``Depends(get_session)``.
+"""
+
+from collections.abc import AsyncIterator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from okapi_api.core.config import get_settings
+
+_engine = create_async_engine(get_settings().database_url, future=True)
+_session_factory = async_sessionmaker(_engine, expire_on_commit=False)
+
+
+async def get_session() -> AsyncIterator[AsyncSession]:
+    async with _session_factory() as session:
+        yield session
