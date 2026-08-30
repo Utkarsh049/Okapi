@@ -11,7 +11,13 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from okapi_api.core.security import decode_access_token
+from okapi_api.core.security import (
+    TokenError,
+    TokenExpiredError,
+    TokenInvalidError,
+    decode_access_token,
+)
+from okapi_api.core.token_store import TokenRevocationStore, get_token_revocation_store
 from okapi_api.db.session import get_session
 from okapi_api.gate.gate import Gate
 from okapi_api.gate.policy_client import OpaPolicyClient, PolicyClient
@@ -51,18 +57,34 @@ def get_audit_repo(db: DbSession) -> AuditRepository:
     return AuditRepository(db)
 
 
+def get_token_store() -> TokenRevocationStore:
+    return get_token_revocation_store()
+
+
 # --- identity -------------------------------------------------------------------
-def get_current_actor(token: Annotated[str, Depends(oauth2_scheme)]) -> GateActor:
+def get_current_actor(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    token_store: Annotated[TokenRevocationStore, Depends(get_token_store)],
+) -> GateActor:
     try:
         claims = decode_access_token(token)
+        jti = claims.get("jti")
+        if jti and token_store.is_revoked(str(jti)):
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "token has been revoked")
+
         return GateActor(
             sub=str(claims["sub"]),
             role=str(claims["role"]),
             actor_type=ActorType(claims["actor_type"]),
             attributes=dict(claims.get("attributes") or {}),
             acting_on_behalf_of=claims.get("acting_on_behalf_of"),
+            jti=str(jti) if jti else None,
         )
-    except (KeyError, ValueError) as exc:
+    except HTTPException:
+        raise
+    except TokenExpiredError as exc:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "token has expired") from exc
+    except (TokenInvalidError, TokenError, KeyError, ValueError) as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"invalid token: {exc}") from exc
     except Exception as exc:  # noqa: BLE001 - jwt errors -> 401
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token") from exc
