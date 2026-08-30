@@ -26,6 +26,7 @@ from okapi_api.repositories.document_repository import DocumentRepository
 from okapi_api.repositories.field_repository import FieldRepository
 from okapi_api.repositories.user_repository import UserRepository
 from okapi_api.services.edit_service import EditService
+from okapi_api.services.extraction_service import ExtractionService
 from okapi_api.services.integrity_service import IntegrityService
 from okapi_api.services.lineage_service import LineageService
 from okapi_api.services.propagation_service import PropagationService
@@ -135,3 +136,8 @@ def get_integrity_service(
     fields: Annotated[FieldRepository, Depends(get_field_repo)],
 ) -> IntegrityService:
     return IntegrityService(fields)
+
+
+def get_extraction_service() -> ExtractionService:
+    return ExtractionService()
+
