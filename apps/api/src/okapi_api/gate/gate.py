@@ -67,9 +67,7 @@ class Gate:
             raise GateDenied(result.reason)
         return result
 
-    def check_signoff(
-        self, *, actor: GateActor, document: Document, field: Field
-    ) -> PolicyResult:
+    def check_signoff(self, *, actor: GateActor, document: Document, field: Field) -> PolicyResult:
         """Raise ``GateDenied`` unless the actor is authorized to sign off on this field."""
         result = self._decide(actor, EdgeAction.SIGNOFF, document, field)
         if not result.allow:
