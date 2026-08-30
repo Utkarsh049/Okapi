@@ -35,8 +35,38 @@ researcher_writes := json.patch(clinician_reads_phi, [
 	{"op": "replace", "path": "/document_metadata/field_category", "value": "research"},
 ])
 
+clinician_signs_off := json.patch(clinician_reads_phi, [
+	{"op": "replace", "path": "/action", "value": "signoff"},
+])
+
+researcher_signs_off := json.patch(clinician_signs_off, [
+	{"op": "replace", "path": "/actor/role", "value": "researcher"},
+])
+
+ai_signs_off := json.patch(clinician_signs_off, [
+	{"op": "replace", "path": "/actor", "value": {
+		"sub": "svc",
+		"role": "ai_agent",
+		"actor_type": "ai_agent",
+		"attributes": {"clearance_level": 3},
+		"acting_on_behalf_of": null,
+	}},
+])
+
 test_clinician_can_read_phi if {
 	authz.allow with input as clinician_reads_phi
+}
+
+test_clinician_can_signoff_phi if {
+	authz.allow with input as clinician_signs_off
+}
+
+test_researcher_cannot_signoff if {
+	not authz.allow with input as researcher_signs_off
+}
+
+test_ai_agent_cannot_signoff if {
+	not authz.allow with input as ai_signs_off
 }
 
 test_ai_agent_blocked_from_phi_by_compliance if {
