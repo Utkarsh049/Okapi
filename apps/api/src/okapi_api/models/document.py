@@ -19,4 +19,6 @@ class Document(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     merkle_root: Mapped[str | None] = mapped_column(String(64), nullable=True)
     merkle_signature: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

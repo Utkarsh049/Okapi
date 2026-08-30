@@ -104,10 +104,7 @@ class IntegrityService:
             signature_valid = False
 
         anti_tamper_passed = (
-            (not value_mismatches)
-            and (not edge_mismatches)
-            and root_matches
-            and signature_valid
+            (not value_mismatches) and (not edge_mismatches) and root_matches and signature_valid
         )
 
         if doc is not None:
