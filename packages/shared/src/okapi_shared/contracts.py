@@ -16,7 +16,8 @@ class GateActor(BaseModel):
     sub: str
     role: str
     actor_type: ActorType
-    attributes: dict[str, str] = Field(default_factory=dict)
+    # e.g. {"department": "cardiology", "clearance_level": 3} — ABAC keys off these.
+    attributes: dict[str, object] = Field(default_factory=dict)
     acting_on_behalf_of: str | None = None
 
 
