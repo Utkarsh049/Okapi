@@ -140,4 +140,3 @@ def get_integrity_service(
 
 def get_extraction_service() -> ExtractionService:
     return ExtractionService()
-

@@ -97,7 +97,7 @@ class ExtractionService:
             )
 
         # 2. Blood pressure
-        bp_match = re.search(r"(?:BP|blood\s*pressure):\s*(\d{2,3}/\d{2,3})", text, re.IGNORECASE)
+        bp_match = re.search(r"(?:BP|blood\s*pressure)[:\s]+(\d{2,3}/\d{2,3})", text, re.IGNORECASE)
         if bp_match:
             fields.append(
                 ExtractedField(
@@ -111,7 +111,7 @@ class ExtractionService:
             )
 
         # 3. Heart rate / pulse
-        hr_match = re.search(r"(?:HR|pulse|heart\s*rate):\s*(\d{2,3})", text, re.IGNORECASE)
+        hr_match = re.search(r"(?:HR|pulse|heart\s*rate)[:\s]+(\d{2,3})", text, re.IGNORECASE)
         if hr_match:
             fields.append(
                 ExtractedField(
@@ -142,7 +142,7 @@ class ExtractionService:
 
         # 5. Cohort size / study number
         cohort_match = re.search(
-            r"(?:cohort|sample\s*size|patients\s*enrolled):\s*(\d+)", text, re.IGNORECASE
+            r"(?:cohort|sample\s*size|patients\s*enrolled)[:\s]+(\d+)", text, re.IGNORECASE
         )
         if cohort_match:
             fields.append(
