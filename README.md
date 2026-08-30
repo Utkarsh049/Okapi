@@ -46,5 +46,8 @@ opa test packages/policies -v                             # policy unit tests
 ```
 
 A `Makefile` wraps the common tasks (`make sync`, `make run`, `make check`,
-`make compose-up`). If `uv` is not on `PATH` but was pip-installed, use
-`make run UV="python -m uv"`.
+`make migrate`, `make seed`, `make opa-serve`, `make demo`, `make compose-up`). If
+`uv` is not on `PATH` but was pip-installed, use `make run UV="python -m uv"`.
+
+**Review demo:** see [docs/DEMO.md](docs/DEMO.md) — setup, `scripts/demo.py`, and an
+implemented-vs-deferred table for the 50% milestone.

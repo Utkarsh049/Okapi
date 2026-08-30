@@ -4,7 +4,9 @@
 UV ?= uv
 COMPOSE ?= docker compose -f infra/docker-compose.yml
 
-.PHONY: sync run test lint fmt typecheck check migrate revision compose-up compose-down opa-test
+OPA ?= .tools/opa.exe
+
+.PHONY: sync run test lint fmt typecheck check migrate revision seed demo opa-serve opa-test compose-up compose-down
 
 sync:
 	$(UV) sync
@@ -33,6 +35,15 @@ migrate:
 revision:
 	$(UV) run --package okapi-api alembic -c apps/api/alembic.ini revision --autogenerate -m "$(m)"
 
+seed:
+	$(UV) run --package okapi-api python scripts/seed.py
+
+demo:
+	$(UV) run --package okapi-api python scripts/demo.py
+
+opa-serve:
+	$(OPA) run --server --addr localhost:8181 packages/policies
+
 compose-up:
 	$(COMPOSE) up --build
 
@@ -40,4 +51,4 @@ compose-down:
 	$(COMPOSE) down -v
 
 opa-test:
-	opa test packages/policies -v
+	$(OPA) test packages/policies -v

@@ -20,8 +20,11 @@ from okapi_api.repositories.document_repository import DocumentRepository
 from okapi_api.repositories.field_repository import FieldRepository
 from okapi_api.repositories.user_repository import UserRepository
 from okapi_api.services.edit_service import EditService
+from okapi_api.services.integrity_service import IntegrityService
 from okapi_api.services.lineage_service import LineageService
 from okapi_api.services.propagation_service import PropagationService
+from okapi_api.services.rag_service import RAGService
+from okapi_api.services.retrieval_service import RetrievalService
 from okapi_api.services.versioning_service import VersioningService
 from okapi_shared.contracts import GateActor
 from okapi_shared.enums import ActorType
@@ -97,3 +100,16 @@ def get_versioning_service(
     fields: Annotated[FieldRepository, Depends(get_field_repo)],
 ) -> VersioningService:
     return VersioningService(fields)
+
+
+def get_retrieval_service(
+    gate: Annotated[Gate, Depends(get_gate)],
+    fields: Annotated[FieldRepository, Depends(get_field_repo)],
+) -> RetrievalService:
+    return RetrievalService(gate, fields, RAGService(fields))
+
+
+def get_integrity_service(
+    fields: Annotated[FieldRepository, Depends(get_field_repo)],
+) -> IntegrityService:
+    return IntegrityService(fields)

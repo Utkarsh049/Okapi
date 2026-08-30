@@ -1,6 +1,5 @@
-"""Document container + field-scoped write endpoints (architecture doc sections 5.2, 9).
-
-Read/lineage/integrity endpoints are added in milestone 3.
+"""Document container, field-scoped write, read, lineage, and integrity endpoints
+(architecture doc sections 5.1, 5.2, 9).
 """
 
 import uuid
@@ -13,13 +12,19 @@ from okapi_api.core.deps import (
     get_document_repo,
     get_edit_service,
     get_field_repo,
+    get_integrity_service,
+    get_retrieval_service,
     get_versioning_service,
 )
 from okapi_api.repositories.document_repository import DocumentRepository
 from okapi_api.repositories.field_repository import FieldRepository
 from okapi_api.schemas.document import DocumentCreate, DocumentRead
 from okapi_api.schemas.field import FieldPatch, FieldRead, FieldRegister, VersionRead
+from okapi_api.schemas.lineage import LineageGraph
+from okapi_api.schemas.read import QueryRequest, QueryResponse
 from okapi_api.services.edit_service import EditService
+from okapi_api.services.integrity_service import IntegrityService
+from okapi_api.services.retrieval_service import RetrievalService
 from okapi_api.services.versioning_service import VersioningService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -84,3 +89,65 @@ def patch_field(
         parent_version_ids=body.parent_version_ids,
         is_ai_generated=body.is_ai_generated,
     )
+
+
+@router.post("/{document_id}/query", response_model=QueryResponse)
+def query_document(
+    document_id: uuid.UUID,
+    body: QueryRequest,
+    actor: CurrentActor,
+    docs: Annotated[DocumentRepository, Depends(get_document_repo)],
+    retrieval: Annotated[RetrievalService, Depends(get_retrieval_service)],
+) -> object:
+    document = docs.get(document_id)
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found")
+    return retrieval.query(actor=actor, document=document, question=body.question)
+
+
+@router.get("/{document_id}/lineage", response_model=LineageGraph)
+def get_lineage(
+    document_id: uuid.UUID,
+    actor: CurrentActor,
+    docs: Annotated[DocumentRepository, Depends(get_document_repo)],
+    fields: Annotated[FieldRepository, Depends(get_field_repo)],
+) -> object:
+    if docs.get(document_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found")
+    versions = fields.get_versions_for_document(document_id)
+    edges = fields.get_edges_for_document(document_id)
+    return {
+        "document_id": document_id,
+        "nodes": [
+            {
+                "id": v.id,
+                "field_id": v.field_id,
+                "value_hash": v.value_hash,
+                "status": v.status,
+                "is_ai_generated": v.is_ai_generated,
+                "parent_version_id": v.parent_version_id,
+                "created_at": v.created_at,
+            }
+            for v in versions
+        ],
+        "edges": [
+            {
+                "child_version_id": e.child_version_id,
+                "parent_version_id": e.parent_version_id,
+                "edge_hash": e.edge_hash,
+            }
+            for e in edges
+        ],
+    }
+
+
+@router.get("/{document_id}/integrity")
+def get_integrity(
+    document_id: uuid.UUID,
+    actor: CurrentActor,
+    docs: Annotated[DocumentRepository, Depends(get_document_repo)],
+    integrity: Annotated[IntegrityService, Depends(get_integrity_service)],
+) -> dict[str, object]:
+    if docs.get(document_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found")
+    return integrity.verify(document_id)

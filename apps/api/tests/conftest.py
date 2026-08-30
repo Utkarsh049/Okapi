@@ -47,3 +47,39 @@ def db_session(engine: Engine) -> Iterator[Session]:
         session.close()
         trans.rollback()
         connection.close()
+
+
+@pytest.fixture
+def api_client(engine: Engine) -> Iterator[object]:
+    """TestClient wired to the test engine, with OPA stubbed to allow-all.
+
+    Auth stays real (token issue + JWT decode); only the policy client is swapped so
+    the write/read *mechanism* can be exercised without a running OPA.
+    """
+    from fastapi.testclient import TestClient
+    from sqlalchemy.orm import sessionmaker
+
+    from okapi_api.core.deps import get_policy_client
+    from okapi_api.db.session import get_session
+    from okapi_api.gate.policy_client import StubPolicyClient
+    from okapi_api.main import app
+
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    def _session_override() -> Iterator[Session]:
+        session = factory()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    app.dependency_overrides[get_session] = _session_override
+    app.dependency_overrides[get_policy_client] = lambda: StubPolicyClient()
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
