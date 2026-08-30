@@ -62,3 +62,22 @@ def test_check_fields_returns_only_the_allowed_subset() -> None:
         fields=[FakeField("a"), FakeField("b"), FakeField("c")],
     )
     assert allowed == ["a", "c"]
+
+
+def test_check_signoff_allows_and_writes_allow_row() -> None:
+    audit = FakeAudit()
+    gate = Gate(StubPolicyClient(), audit)  # type: ignore[arg-type]
+    gate.check_signoff(actor=_actor(), document=FakeDoc(), field=FakeField("diagnosis"))
+    assert len(audit.rows) == 1
+    assert audit.rows[0]["action"] == "signoff"
+    assert audit.rows[0]["decision"].value == "allow"
+
+
+def test_check_signoff_denied_raises_after_recording_deny() -> None:
+    audit = FakeAudit()
+    gate = Gate(StubPolicyClient(denials={("restricted", "signoff")}), audit)  # type: ignore[arg-type]
+    with pytest.raises(GateDenied):
+        gate.check_signoff(actor=_actor(), document=FakeDoc(), field=FakeField("restricted"))
+    assert len(audit.rows) == 1
+    assert audit.rows[0]["action"] == "signoff"
+    assert audit.rows[0]["decision"].value == "deny"
