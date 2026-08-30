@@ -26,22 +26,19 @@ class EmbeddingService:
         if not cleaned:
             return [0.0] * self.dim
 
-        # Tokenize words to preserve semantic token frequency
         tokens = re.findall(r"\w+", cleaned)
         if not tokens:
             tokens = [cleaned]
 
         vector = [0.0] * self.dim
         for token in tokens:
-            # Hash token to spread across dimensions deterministically
+            # Generate deterministic hash for the token
             digest = hashlib.sha256(token.encode("utf-8")).digest()
-            for i in range(min(len(digest), self.dim)):
-                # Map byte 0..255 to -1.0 .. 1.0
-                val = (digest[i] - 128.0) / 128.0
-                idx = (i * 13) % self.dim
-                vector[idx] += val
+            for i in range(8):
+                idx = int.from_bytes(digest[i * 2 : i * 2 + 2], "big") % self.dim
+                sign = 1.0 if (digest[i] % 2 == 0) else -1.0
+                vector[idx] += sign * 2.0
 
-        # Compute L2 norm
         norm_sq = sum(x * x for x in vector)
         if norm_sq == 0.0:
             return [0.0] * self.dim

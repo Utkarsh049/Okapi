@@ -16,7 +16,13 @@ class VersioningService:
         embed_service: EmbeddingService | None = None,
     ) -> None:
         self._fields = fields
-        self._embeddings = embeddings or EmbeddingRepository(fields._session)
+        if embeddings is not None:
+            self._embeddings: EmbeddingRepository | None = embeddings
+        elif hasattr(fields, "_session") and fields._session is not None:
+            self._embeddings = EmbeddingRepository(fields._session)
+        else:
+            self._embeddings = None
+
         self._embed_service = embed_service or EmbeddingService()
 
     def create_version(
@@ -45,12 +51,13 @@ class VersioningService:
         )
 
         # Automatically compute and store field vector embedding
-        vector = self._embed_service.embed_text(new_value)
-        self._embeddings.save_embedding(
-            field_version_id=version.id,
-            embedding=vector,
-            chunk_text=new_value,
-            model_name=self._embed_service.model_name,
-        )
+        if self._embeddings is not None:
+            vector = self._embed_service.embed_text(new_value)
+            self._embeddings.save_embedding(
+                field_version_id=version.id,
+                embedding=vector,
+                chunk_text=new_value,
+                model_name=self._embed_service.model_name,
+            )
 
         return version

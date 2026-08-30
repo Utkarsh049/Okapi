@@ -13,9 +13,7 @@ from okapi_api.models.base import Base
 class FieldEmbedding(Base):
     __tablename__ = "field_embeddings"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     field_version_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("field_versions.id", ondelete="CASCADE"),
