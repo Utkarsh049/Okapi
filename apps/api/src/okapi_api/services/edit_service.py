@@ -8,6 +8,8 @@ The write is an amendment: a new version, never an overwrite.
 import uuid
 from collections.abc import Sequence
 
+from okapi_api.core.config import get_settings
+from okapi_api.core.hashing import compute_merkle_root, sign_merkle_root
 from okapi_api.gate.gate import Gate
 from okapi_api.models import Document, Field, FieldVersion
 from okapi_api.repositories.field_repository import FieldRepository
@@ -59,4 +61,14 @@ class EditService:
         )
         self._lineage.link(version, parent_version_ids)
         self._propagation.flag_dependents(field.id)
+
+        # Update and cryptographically sign document Merkle root
+        edges = self._fields.get_edges_for_document(document.id)
+        merkle_root = compute_merkle_root([e.edge_hash for e in edges])
+        sig = sign_merkle_root(merkle_root, get_settings().jwt_secret)
+        document.merkle_root = merkle_root
+        document.merkle_signature = sig
+        if hasattr(self._fields, "_session") and self._fields._session is not None:
+            self._fields._session.flush()
+
         return version

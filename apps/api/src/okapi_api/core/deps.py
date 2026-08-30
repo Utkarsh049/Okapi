@@ -148,8 +148,9 @@ def get_retrieval_service(
 
 def get_integrity_service(
     fields: Annotated[FieldRepository, Depends(get_field_repo)],
+    docs: Annotated[DocumentRepository, Depends(get_document_repo)],
 ) -> IntegrityService:
-    return IntegrityService(fields)
+    return IntegrityService(fields=fields, docs=docs)
 
 
 def get_extraction_service() -> ExtractionService:
