@@ -4,9 +4,12 @@
 UV ?= uv
 COMPOSE ?= docker compose -f infra/docker-compose.yml
 
-OPA ?= .tools/opa.exe
+OPA ?= $(shell command -v opa 2>/dev/null || ([ -f .tools/opa ] && echo .tools/opa) || echo .tools/opa.exe)
 
-.PHONY: sync run test lint fmt typecheck check migrate revision seed demo opa-serve opa-test compose-up compose-down
+.PHONY: dev sync run test lint fmt typecheck check migrate revision seed demo opa-serve opa-test compose-up compose-down
+
+dev:
+	./scripts/dev.sh
 
 sync:
 	$(UV) sync

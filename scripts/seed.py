@@ -85,6 +85,11 @@ def main() -> None:
                 )
                 session.add(user)
                 session.flush()
+            else:
+                user.password_hash = hash_password(DEV_PASSWORD)
+                user.attributes = dict(spec.attributes)
+                user.role = spec.role
+                session.flush()
             users[spec.role] = user
 
         owner = users["clinician"]
