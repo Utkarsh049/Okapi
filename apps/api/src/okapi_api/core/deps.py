@@ -23,6 +23,7 @@ from okapi_api.gate.gate import Gate
 from okapi_api.gate.policy_client import OpaPolicyClient, PolicyClient
 from okapi_api.repositories.audit_repository import AuditRepository
 from okapi_api.repositories.document_repository import DocumentRepository
+from okapi_api.repositories.embedding_repository import EmbeddingRepository
 from okapi_api.repositories.field_repository import FieldRepository
 from okapi_api.repositories.user_repository import UserRepository
 from okapi_api.services.edit_service import EditService
@@ -56,6 +57,10 @@ def get_field_repo(db: DbSession) -> FieldRepository:
 
 def get_audit_repo(db: DbSession) -> AuditRepository:
     return AuditRepository(db)
+
+
+def get_embedding_repo(db: DbSession) -> EmbeddingRepository:
+    return EmbeddingRepository(db)
 
 
 def get_token_store() -> TokenRevocationStore:
@@ -125,11 +130,19 @@ def get_versioning_service(
     return VersioningService(fields)
 
 
+def get_rag_service(
+    fields: Annotated[FieldRepository, Depends(get_field_repo)],
+    embeddings: Annotated[EmbeddingRepository, Depends(get_embedding_repo)],
+) -> RAGService:
+    return RAGService(fields=fields, embeddings=embeddings)
+
+
 def get_retrieval_service(
     gate: Annotated[Gate, Depends(get_gate)],
     fields: Annotated[FieldRepository, Depends(get_field_repo)],
+    rag: Annotated[RAGService, Depends(get_rag_service)],
 ) -> RetrievalService:
-    return RetrievalService(gate, fields, RAGService(fields))
+    return RetrievalService(gate, fields, rag)
 
 
 def get_integrity_service(
