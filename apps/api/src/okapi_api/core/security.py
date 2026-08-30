@@ -6,20 +6,22 @@ AuthZ is delegated to OPA; this module only handles AuthN primitives.
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import bcrypt
 import jwt
-from passlib.context import CryptContext
 
 from okapi_api.core.config import get_settings
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_password(plain: str) -> str:
-    return str(_pwd_context.hash(plain))
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(plain.encode("utf-8"), salt).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return bool(_pwd_context.verify(plain, hashed))
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except ValueError:
+        return False
 
 
 def encode_access_token(claims: dict[str, Any]) -> str:
