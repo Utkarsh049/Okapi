@@ -170,7 +170,7 @@ class FormFillService:
 
         if unapproved_fields:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail={
                     "message": "Form submission blocked: required human sign-off missing",
                     "unapproved_fields": unapproved_fields,
