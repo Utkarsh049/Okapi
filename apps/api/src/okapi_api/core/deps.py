@@ -28,6 +28,7 @@ from okapi_api.repositories.field_repository import FieldRepository
 from okapi_api.repositories.user_repository import UserRepository
 from okapi_api.services.edit_service import EditService
 from okapi_api.services.extraction_service import ExtractionService
+from okapi_api.services.form_fill_service import FormFillService
 from okapi_api.services.integrity_service import IntegrityService
 from okapi_api.services.lineage_service import LineageService
 from okapi_api.services.propagation_service import PropagationService
@@ -153,3 +154,19 @@ def get_integrity_service(
 
 def get_extraction_service() -> ExtractionService:
     return ExtractionService()
+
+
+def get_form_fill_service(
+    gate: Annotated[Gate, Depends(get_gate)],
+    docs: Annotated[DocumentRepository, Depends(get_document_repo)],
+    fields: Annotated[FieldRepository, Depends(get_field_repo)],
+    versioning: Annotated[VersioningService, Depends(get_versioning_service)],
+    embeddings: Annotated[EmbeddingRepository, Depends(get_embedding_repo)],
+) -> FormFillService:
+    return FormFillService(
+        gate=gate,
+        docs=docs,
+        fields=fields,
+        versioning=versioning,
+        embeddings=embeddings,
+    )
