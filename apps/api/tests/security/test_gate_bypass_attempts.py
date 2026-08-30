@@ -6,11 +6,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from okapi_api.gate.gate import Gate, GateDenied
-from okapi_api.models import Document, Field, FieldVersion
+from okapi_api.models import Document, Field
 from okapi_api.services.edit_service import EditService
 from okapi_api.services.form_fill_service import FormFillService
 from okapi_api.services.retrieval_service import RetrievalService
-from okapi_shared.contracts import GateActor, PolicyResult
+from okapi_shared.contracts import GateActor
 from okapi_shared.enums import ActorType
 
 
