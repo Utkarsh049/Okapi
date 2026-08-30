@@ -1,10 +1,17 @@
-"""Pydantic bodies for the field-scoped read flow (architecture doc section 5.1)."""
+from pydantic import BaseModel, field_validator
 
-from pydantic import BaseModel
+from okapi_api.core.sanitization import sanitize_text
 
 
 class QueryRequest(BaseModel):
     question: str = "Summarise this document."
+
+    @field_validator("question", mode="before")
+    @classmethod
+    def sanitize_inputs(cls, v: object) -> object:
+        if isinstance(v, str):
+            return sanitize_text(v)
+        return v
 
 
 class QueryResponse(BaseModel):
