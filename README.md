@@ -106,18 +106,16 @@ Interactive API documentation will be available at: **http://localhost:8000/docs
 ## Running Verification & Quality Gates
 
 ```bash
-# Run full Pytest test suite (unit, integration, and security tests)
-OKAPI_TEST_DATABASE_URL="postgresql+psycopg://utkarsh:utkarshpsql@localhost:5432/okapi" uv run pytest
+# Run full Pytest test suite (automatically reads DB from .env)
+make test
+# or run with explicit alias:
+OKAPI_TEST_DATABASE_URL="postgresql+psycopg://okapi_user:okapi_password@localhost:5432/okapi" uv run pytest
 
 # Run OPA policy test suite
 make opa-test
-# or:
-.tools/opa test packages/policies -v
 
-# Run static quality checks
-uv run ruff check .
-uv run black --check .
-uv run mypy
+# Run all quality gates (lint + typecheck + all tests)
+make gate
 ```
 
 ---
