@@ -5,7 +5,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from okapi_api.core.sanitization import sanitize_text
+from okapi_api.core.sanitization import sanitize_text, validate_field_key
 
 
 class FieldRegister(BaseModel):
@@ -22,6 +22,16 @@ class FieldRegister(BaseModel):
         if isinstance(v, str):
             return sanitize_text(v)
         return v
+
+    @field_validator("field_key")
+    @classmethod
+    def check_field_key_format(cls, v: str) -> str:
+        if not validate_field_key(v):
+            raise ValueError(
+                "field_key must be lowercase dot-separated alphanumeric "
+                "(e.g. 'patient.diagnosis')"
+            )
+        return v.strip().lower()
 
 
 class FieldRead(BaseModel):

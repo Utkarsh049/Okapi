@@ -17,6 +17,7 @@ from okapi_api.core.deps import (
     get_retrieval_service,
     get_versioning_service,
 )
+from okapi_api.core.rate_limit import RateLimiter
 from okapi_api.repositories.document_repository import DocumentRepository
 from okapi_api.repositories.field_repository import FieldRepository
 from okapi_api.schemas.document import DocumentCreate, DocumentRead
@@ -30,7 +31,9 @@ from okapi_api.services.integrity_service import IntegrityService
 from okapi_api.services.retrieval_service import RetrievalService
 from okapi_api.services.versioning_service import VersioningService
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(
+    prefix="/documents", tags=["documents"], dependencies=[Depends(RateLimiter())]
+)
 
 
 @router.post("", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)

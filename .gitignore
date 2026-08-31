@@ -21,3 +21,7 @@ htmlcov/
 .env
 .env.*
 !.env.example
+
+# Local milestone/progress notes (not shared via git; see STRUCTURE.md)
+timeline.md
+audit-findings.md

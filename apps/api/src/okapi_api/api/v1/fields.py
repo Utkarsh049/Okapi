@@ -16,12 +16,13 @@ from okapi_api.core.deps import (
     get_field_repo,
     get_gate,
 )
+from okapi_api.core.rate_limit import RateLimiter
 from okapi_api.gate.gate import Gate
 from okapi_api.repositories.document_repository import DocumentRepository
 from okapi_api.repositories.field_repository import FieldRepository
 from okapi_api.schemas.field import VersionRead
 
-router = APIRouter(prefix="/fields", tags=["fields"])
+router = APIRouter(prefix="/fields", tags=["fields"], dependencies=[Depends(RateLimiter())])
 
 
 @router.post("/{field_id}/signoff", response_model=VersionRead)

@@ -1,9 +1,9 @@
 """Token-bucket sliding-window rate limiter for sensitive API endpoints (Phase 09)."""
 
+import hashlib
 import math
 import threading
 import time
-from collections import defaultdict
 
 from fastapi import HTTPException, Request, status
 
@@ -11,7 +11,7 @@ from fastapi import HTTPException, Request, status
 class TokenBucketRateLimiter:
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._requests: dict[str, list[float]] = defaultdict(list)
+        self._requests: dict[str, list[float]] = {}
 
     def check_rate_limit(
         self, key: str, max_requests: int, window_seconds: float
@@ -22,18 +22,19 @@ class TokenBucketRateLimiter:
         """
         now = time.time()
         with self._lock:
-            history = self._requests[key]
+            history = self._requests.get(key, [])
             # Evict timestamps outside current window
             cutoff = now - window_seconds
             valid_history = [t for t in history if t > cutoff]
-            self._requests[key] = valid_history
 
             if len(valid_history) >= max_requests:
+                self._requests[key] = valid_history
                 oldest = valid_history[0]
                 retry_after = max(1, math.ceil(window_seconds - (now - oldest)))
                 return False, retry_after
 
             valid_history.append(now)
+            self._requests[key] = valid_history
             return True, 0
 
     def reset(self) -> None:
@@ -64,8 +65,14 @@ class RateLimiter:
     async def __call__(self, request: Request) -> None:
         client_ip = request.client.host if request.client else "unknown_client"
         auth_header = request.headers.get("authorization", "")
-        # Use auth token prefix or client IP as rate limit key
-        key = f"{client_ip}:{auth_header[:32]}"
+        # Hash the full auth header so distinct tokens actually produce distinct keys.
+        # (A raw prefix doesn't work here: every JWT this app issues has an identical
+        # ~36-char base64 header segment, since alg/typ never vary, so the first ~32
+        # chars of any "Bearer <token>" string are the same for every user.)
+        auth_fingerprint = (
+            hashlib.sha256(auth_header.encode()).hexdigest()[:16] if auth_header else "anon"
+        )
+        key = f"{client_ip}:{auth_fingerprint}"
 
         allowed, retry_after = self.limiter.check_rate_limit(
             key=key,
