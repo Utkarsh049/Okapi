@@ -13,6 +13,14 @@ from okapi_api.models import FieldVersion, LineageEdge
 from okapi_api.repositories.field_repository import FieldRepository
 
 
+class InvalidParentVersionError(Exception):
+    """Raised when a supplied parent_version_id does not resolve to a real version."""
+
+    def __init__(self, parent_id: uuid.UUID) -> None:
+        super().__init__(f"parent version {parent_id} does not exist")
+        self.parent_id = parent_id
+
+
 class LineageService:
     def __init__(self, fields: FieldRepository) -> None:
         self._fields = fields
@@ -22,7 +30,7 @@ class LineageService:
         for parent_id in parent_ids:
             parent = self._fields.get_version(parent_id)
             if parent is None:
-                continue
+                raise InvalidParentVersionError(parent_id)
             edge_hash = hash_edge(str(parent_id), parent.value_hash, child.value_hash)
             edges.append(
                 self._fields.add_lineage_edge(

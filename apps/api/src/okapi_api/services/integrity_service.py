@@ -37,7 +37,7 @@ class IntegrityService:
         """Compute Merkle root and HMAC-SHA256 signature, persisting them to the document."""
         edges = self._fields.get_edges_for_document(document_id)
         merkle_root = compute_merkle_root([e.edge_hash for e in edges])
-        secret = get_settings().jwt_secret
+        secret = get_settings().merkle_secret
         signature = sign_merkle_root(merkle_root, secret)
 
         if self._docs is not None:
@@ -83,7 +83,7 @@ class IntegrityService:
                 )
 
         recomputed_root = compute_merkle_root([e.edge_hash for e in edges])
-        secret = get_settings().jwt_secret
+        secret = get_settings().merkle_secret
 
         doc = self._docs.get(document_id) if self._docs is not None else None
         stored_root = doc.merkle_root if doc is not None else None

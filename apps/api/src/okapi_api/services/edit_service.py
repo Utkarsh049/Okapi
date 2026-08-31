@@ -65,7 +65,7 @@ class EditService:
         # Update and cryptographically sign document Merkle root
         edges = self._fields.get_edges_for_document(document.id)
         merkle_root = compute_merkle_root([e.edge_hash for e in edges])
-        sig = sign_merkle_root(merkle_root, get_settings().jwt_secret)
+        sig = sign_merkle_root(merkle_root, get_settings().merkle_secret)
         document.merkle_root = merkle_root
         document.merkle_signature = sig
         if hasattr(self._fields, "_session") and self._fields._session is not None:

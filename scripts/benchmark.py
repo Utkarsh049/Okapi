@@ -84,7 +84,9 @@ def _run(name: str, unit: str, iterations: int, fn: Callable[[], object]) -> Ben
     return result
 
 
-def benchmark_edit_pipeline(session, field_id: uuid.UUID, actor: GateActor, iterations: int) -> BenchmarkResult:
+def benchmark_edit_pipeline(
+    session, field_id: uuid.UUID, actor: GateActor, iterations: int
+) -> BenchmarkResult:
     """Full write path: Gate.check_write -> versioning -> lineage -> Merkle re-sign."""
     fields_repo = FieldRepository(session)
     gate = Gate(StubPolicyClient(), AuditRepository(session))

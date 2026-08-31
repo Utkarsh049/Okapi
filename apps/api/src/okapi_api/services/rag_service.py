@@ -79,7 +79,10 @@ class RAGService:
             if head is not None:
                 permitted_values[field.field_key] = head.value
 
-        # 3. Semantic Vector Search restricted strictly to permitted field IDs
+        # 3. Semantic Vector Search restricted strictly to permitted field IDs.
+        #    Narrows what actually reaches the LLM to the top-k relevant fields;
+        #    falls back to the full permitted set if search finds nothing usable.
+        context_keys = list(permitted_values.keys())
         if self._embeddings is not None and permitted_values:
             query_vector = self._embed_service.embed_text(question)
             similar_embs = self._embeddings.search_similar(
@@ -91,11 +94,22 @@ class RAGService:
             logger.debug(
                 "Retrieved %d similar field embeddings for query %r", len(similar_embs), question
             )
+            ranked_keys: list[str] = []
+            for emb, _score in similar_embs:
+                version = self._fields.get_version(emb.field_version_id)
+                if version is None:
+                    continue
+                matched_field = permitted_field_map.get(version.field_id)
+                if matched_field is not None and matched_field.field_key not in ranked_keys:
+                    ranked_keys.append(matched_field.field_key)
+            if ranked_keys:
+                context_keys = ranked_keys
 
-        # 4. Build Prompt Sandwich with XML-encapsulated permitted context
+        # 4. Build Prompt Sandwich with XML-encapsulated context, scoped to the
+        #    semantically relevant fields found above.
         context_blocks = []
-        for key, val in permitted_values.items():
-            safe_val = self._sanitize_field_value(val)
+        for key in context_keys:
+            safe_val = self._sanitize_field_value(permitted_values[key])
             context_blocks.append(f'  <field key="{key}">{safe_val}</field>')
         context_xml = "<permitted_context>\n" + "\n".join(context_blocks) + "\n</permitted_context>"
 
@@ -135,6 +149,6 @@ class RAGService:
                 logger.warning("LLM generation failed, using fallback synthesis: %s", exc)
 
         # High-assurance deterministic synthesis
-        joined = "; ".join(f"{k}={v}" for k, v in permitted_values.items())
-        answer = f"From {len(permitted_values)} permitted field(s): {joined}"
+        joined = "; ".join(f"{k}={permitted_values[k]}" for k in context_keys)
+        answer = f"From {len(context_keys)} permitted field(s): {joined}"
         return {"question": question, "answer": answer, "fields": permitted_values}

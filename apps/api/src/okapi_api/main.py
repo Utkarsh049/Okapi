@@ -13,6 +13,7 @@ from okapi_api.api.v1 import audit, auth, documents, fields, forms
 from okapi_api.core.logging import configure_logging
 from okapi_api.core.middleware import PayloadSizeLimitMiddleware, SecurityHeadersMiddleware
 from okapi_api.gate.gate import GateDenied
+from okapi_api.services.lineage_service import InvalidParentVersionError
 from okapi_shared.constants import API_V1_PREFIX
 
 configure_logging()
@@ -47,6 +48,11 @@ def root() -> RedirectResponse:
 def _on_gate_denied(_: Request, exc: GateDenied) -> JSONResponse:
     """The deny is already recorded in audit_log by the Gate; just shape the 403."""
     return JSONResponse(status_code=403, content={"detail": exc.reason})
+
+
+@app.exception_handler(InvalidParentVersionError)
+def _on_invalid_parent_version(_: Request, exc: InvalidParentVersionError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 @app.get("/health", tags=["meta"])

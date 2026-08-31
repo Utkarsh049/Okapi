@@ -55,7 +55,11 @@ class EmbeddingRepository:
         limit: int = 5,
         allowed_field_ids: list[uuid.UUID] | None = None,
     ) -> list[tuple[FieldEmbedding, float]]:
-        """Search top-k most similar field embeddings in document, constrained by allowed fields."""
+        """Search top-k most similar field embeddings in document, constrained by allowed fields.
+
+        Only the highest-scoring version embedding per field is considered, so a field with a
+        long edit history can't crowd out other fields from the top-k results.
+        """
         stmt = (
             select(FieldEmbedding, Field.id)
             .join(FieldVersion, FieldEmbedding.field_version_id == FieldVersion.id)
@@ -67,12 +71,15 @@ class EmbeddingRepository:
             stmt = stmt.where(Field.id.in_(allowed_field_ids))
 
         rows = self._session.execute(stmt).all()
-        scored: list[tuple[FieldEmbedding, float]] = []
 
-        for emb, _field_id in rows:
+        best_per_field: dict[uuid.UUID, tuple[FieldEmbedding, float]] = {}
+        for emb, field_id in rows:
             score = self._embed_service.cosine_similarity(query_embedding, emb.embedding)
-            scored.append((emb, score))
+            current = best_per_field.get(field_id)
+            if current is None or score > current[1]:
+                best_per_field[field_id] = (emb, score)
 
         # Sort descending by cosine similarity score
+        scored = list(best_per_field.values())
         scored.sort(key=lambda item: item[1], reverse=True)
         return scored[:limit]

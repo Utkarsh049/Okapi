@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_ttl_seconds: int = 900
     anthropic_api_key: str = ""
+    # Separate from jwt_secret on purpose: session auth and anti-tamper proof are
+    # unrelated security purposes, and a leaked JWT secret shouldn't also mean
+    # every Merkle signature is forgeable.
+    merkle_secret: str = "change-me-in-env-too"
 
 
 @lru_cache
