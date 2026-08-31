@@ -7,16 +7,16 @@ import rego.v1
 
 default allow := false
 
-# Compliance officers may read any field.
+# Compliance officers may read or sign off on any field.
 allow if {
 	input.actor.role == "compliance_officer"
-	input.action == "read"
+	input.action in {"read", "signoff"}
 }
 
-# Clinicians may read and write clinical / PHI fields.
+# Clinicians may read, write, and sign off on clinical / PHI fields.
 allow if {
 	input.actor.role == "clinician"
-	input.action in {"read", "write"}
+	input.action in {"read", "write", "signoff"}
 	input.document_metadata.field_category in {"clinical", "phi"}
 }
 

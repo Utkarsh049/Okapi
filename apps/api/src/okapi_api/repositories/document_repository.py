@@ -25,5 +25,18 @@ class DocumentRepository:
     def get(self, document_id: uuid.UUID) -> Document | None:
         return self._session.get(Document, document_id)
 
+    def update_merkle_root(
+        self,
+        document_id: uuid.UUID,
+        merkle_root: str,
+        merkle_signature: str,
+    ) -> Document | None:
+        doc = self.get(document_id)
+        if doc is not None:
+            doc.merkle_root = merkle_root
+            doc.merkle_signature = merkle_signature
+            self._session.flush()
+        return doc
+
     def list_all(self) -> list[Document]:
         return list(self._session.scalars(select(Document).order_by(Document.created_at)))

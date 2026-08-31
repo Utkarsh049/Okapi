@@ -3,7 +3,9 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from okapi_api.core.sanitization import sanitize_text
 
 
 class FieldRegister(BaseModel):
@@ -13,6 +15,13 @@ class FieldRegister(BaseModel):
     category: str | None = None
     # Optional initial value — creates version 1 (extraction from raw text is deferred).
     value: str | None = None
+
+    @field_validator("field_key", "value", mode="before")
+    @classmethod
+    def sanitize_inputs(cls, v: object) -> object:
+        if isinstance(v, str):
+            return sanitize_text(v)
+        return v
 
 
 class FieldRead(BaseModel):
@@ -32,6 +41,13 @@ class FieldPatch(BaseModel):
     # Supply two ids to record a merge commit; omit to chain from the current head.
     parent_version_ids: list[uuid.UUID] | None = None
     is_ai_generated: bool = False
+
+    @field_validator("new_value", "amendment_note", mode="before")
+    @classmethod
+    def sanitize_patch_inputs(cls, v: object) -> object:
+        if isinstance(v, str):
+            return sanitize_text(v)
+        return v
 
 
 class VersionRead(BaseModel):

@@ -6,7 +6,7 @@ the lineage a DAG rather than a linked list, and lets a merge commit have two pa
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -37,7 +37,9 @@ class Field(Base):
     requires_signoff: Mapped[bool] = mapped_column(Boolean, default=False)
     # Free-form tag (e.g. "phi", "clinical") that ABAC / compliance policies key off.
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
+    )
 
 
 class FieldVersion(Base):
@@ -51,7 +53,9 @@ class FieldVersion(Base):
     value_hash: Mapped[str] = mapped_column(String(64))
     parent_version_id: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid()), default=list)
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now()
+    )
     is_ai_generated: Mapped[bool] = mapped_column(Boolean, default=False)
     amendment_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     # active | pending_signoff | auto_approved

@@ -1,20 +1,29 @@
-"""VersioningService — field-level version history (architecture doc section 4.1).
-
-``create_version`` appends a ``field_versions`` row with the content hash and the
-parent pointer array. This IS the "field-level versioning" mechanism.
-"""
-
 import uuid
 from collections.abc import Sequence
 
 from okapi_api.core.hashing import hash_value
 from okapi_api.models import FieldVersion
+from okapi_api.repositories.embedding_repository import EmbeddingRepository
 from okapi_api.repositories.field_repository import FieldRepository
+from okapi_api.services.embedding_service import EmbeddingService
 
 
 class VersioningService:
-    def __init__(self, fields: FieldRepository) -> None:
+    def __init__(
+        self,
+        fields: FieldRepository,
+        embeddings: EmbeddingRepository | None = None,
+        embed_service: EmbeddingService | None = None,
+    ) -> None:
         self._fields = fields
+        if embeddings is not None:
+            self._embeddings: EmbeddingRepository | None = embeddings
+        elif hasattr(fields, "_session") and fields._session is not None:
+            self._embeddings = EmbeddingRepository(fields._session)
+        else:
+            self._embeddings = None
+
+        self._embed_service = embed_service or EmbeddingService()
 
     def create_version(
         self,
@@ -30,7 +39,7 @@ class VersioningService:
         if parent_ids is None:
             head = self._fields.get_head_version(field_id)
             parent_ids = [head.id] if head is not None else []
-        return self._fields.create_version(
+        version = self._fields.create_version(
             field_id=field_id,
             value=new_value,
             value_hash=hash_value(new_value),
@@ -40,3 +49,15 @@ class VersioningService:
             amendment_note=amendment_note,
             status=status,
         )
+
+        # Automatically compute and store field vector embedding
+        if self._embeddings is not None:
+            vector = self._embed_service.embed_text(new_value)
+            self._embeddings.save_embedding(
+                field_version_id=version.id,
+                embedding=vector,
+                chunk_text=new_value,
+                model_name=self._embed_service.model_name,
+            )
+
+        return version

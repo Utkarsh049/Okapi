@@ -11,6 +11,7 @@ from okapi_api.core.deps import (
     CurrentActor,
     get_document_repo,
     get_edit_service,
+    get_extraction_service,
     get_field_repo,
     get_integrity_service,
     get_retrieval_service,
@@ -19,10 +20,12 @@ from okapi_api.core.deps import (
 from okapi_api.repositories.document_repository import DocumentRepository
 from okapi_api.repositories.field_repository import FieldRepository
 from okapi_api.schemas.document import DocumentCreate, DocumentRead
+from okapi_api.schemas.extraction import ExtractionRequest, ExtractionResponse
 from okapi_api.schemas.field import FieldPatch, FieldRead, FieldRegister, VersionRead
 from okapi_api.schemas.lineage import LineageGraph
 from okapi_api.schemas.read import QueryRequest, QueryResponse
 from okapi_api.services.edit_service import EditService
+from okapi_api.services.extraction_service import ExtractionService
 from okapi_api.services.integrity_service import IntegrityService
 from okapi_api.services.retrieval_service import RetrievalService
 from okapi_api.services.versioning_service import VersioningService
@@ -62,6 +65,47 @@ def register_field(
             field_id=field.id, new_value=body.value, actor_id=uuid.UUID(actor.sub)
         )
     return field
+
+
+@router.post("/{document_id}/extract", response_model=ExtractionResponse)
+def extract_document_fields(
+    document_id: uuid.UUID,
+    body: ExtractionRequest,
+    actor: CurrentActor,
+    docs: Annotated[DocumentRepository, Depends(get_document_repo)],
+    fields: Annotated[FieldRepository, Depends(get_field_repo)],
+    versioning: Annotated[VersioningService, Depends(get_versioning_service)],
+    extraction: Annotated[ExtractionService, Depends(get_extraction_service)],
+) -> object:
+    document = docs.get(document_id)
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found")
+
+    extracted_items = extraction.extract(raw_text=body.raw_text, document_type=body.document_type)
+    registered_ids: list[uuid.UUID] = []
+
+    if body.auto_register:
+        for item in extracted_items:
+            field = fields.register_field(
+                document_id=document_id,
+                field_key=item.field_key,
+                field_type=item.field_type,
+                requires_signoff=item.requires_signoff,
+                category=item.category,
+            )
+            versioning.create_version(
+                field_id=field.id,
+                new_value=item.value,
+                actor_id=uuid.UUID(actor.sub),
+                is_ai_generated=(actor.actor_type.value == "ai_agent"),
+            )
+            registered_ids.append(field.id)
+
+    return {
+        "document_id": document_id,
+        "extracted_fields": extracted_items,
+        "registered_field_ids": registered_ids,
+    }
 
 
 @router.patch("/{document_id}/fields/{field_id}", response_model=VersionRead)

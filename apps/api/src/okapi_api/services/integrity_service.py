@@ -1,27 +1,55 @@
-"""IntegrityService — Merkle / hash-chain verification (architecture doc sections 4.2, 5.1).
+"""IntegrityService — Merkle / hash-chain verification & cryptographic anti-tamper (Phase 08).
 
-``verify`` recomputes every ``value_hash`` and every ``edge_hash`` for a document and
-reports mismatches, detecting any change made outside the API (e.g. a direct DB edit
-that bypassed the Gate). ``merkle_root`` folds the sorted edge hashes for display.
-
-Note: there is no stored root column in the prototype schema, so a coordinated tamper
-of a value *and* all of its incident hashes would not be caught here. Independent
-recomputation still catches every single-point edit — enough for the demo.
+Verifies individual value hashes, DAG edge hash chains, and HMAC-signed document Merkle roots
+to detect unauthorized direct database edits and coordinated out-of-band tampering.
 """
 
-import hashlib
 import uuid
+from datetime import UTC, datetime
 
-from okapi_api.core.hashing import hash_edge, hash_value
+from okapi_api.core.config import get_settings
+from okapi_api.core.hashing import (
+    compute_merkle_root,
+    hash_edge,
+    hash_value,
+    sign_merkle_root,
+    verify_merkle_signature,
+)
+from okapi_api.repositories.document_repository import DocumentRepository
 from okapi_api.repositories.field_repository import FieldRepository
-from okapi_shared.constants import HASH_ALGORITHM
 
 
 class IntegrityService:
-    def __init__(self, fields: FieldRepository) -> None:
+    def __init__(
+        self,
+        fields: FieldRepository,
+        docs: DocumentRepository | None = None,
+    ) -> None:
         self._fields = fields
+        if docs is not None:
+            self._docs: DocumentRepository | None = docs
+        elif hasattr(fields, "_session") and fields._session is not None:
+            self._docs = DocumentRepository(fields._session)
+        else:
+            self._docs = None
+
+    def sign_document(self, document_id: uuid.UUID) -> tuple[str, str]:
+        """Compute Merkle root and HMAC-SHA256 signature, persisting them to the document."""
+        edges = self._fields.get_edges_for_document(document_id)
+        merkle_root = compute_merkle_root([e.edge_hash for e in edges])
+        secret = get_settings().jwt_secret
+        signature = sign_merkle_root(merkle_root, secret)
+
+        if self._docs is not None:
+            self._docs.update_merkle_root(
+                document_id=document_id,
+                merkle_root=merkle_root,
+                merkle_signature=signature,
+            )
+        return merkle_root, signature
 
     def verify(self, document_id: uuid.UUID) -> dict[str, object]:
+        """Verify entire document integrity: value hashes, edge hashes, and Merkle signature."""
         versions = {v.id: v for v in self._fields.get_versions_for_document(document_id)}
         edges = self._fields.get_edges_for_document(document_id)
 
@@ -54,25 +82,50 @@ class IntegrityService:
                     }
                 )
 
+        recomputed_root = compute_merkle_root([e.edge_hash for e in edges])
+        secret = get_settings().jwt_secret
+
+        doc = self._docs.get(document_id) if self._docs is not None else None
+        stored_root = doc.merkle_root if doc is not None else None
+        stored_sig = doc.merkle_signature if doc is not None else None
+
+        # If a stored root exists, check matching and valid signature
+        root_matches = True
+        signature_valid = True
+        root_mismatches: list[dict[str, str]] = []
+
+        if stored_root is not None and stored_root != recomputed_root:
+            root_matches = False
+            root_mismatches.append({"stored": stored_root, "recomputed": recomputed_root})
+
+        if stored_sig is not None:
+            signature_valid = verify_merkle_signature(recomputed_root, stored_sig, secret)
+        elif stored_root is not None:
+            signature_valid = False
+
+        anti_tamper_passed = (
+            (not value_mismatches) and (not edge_mismatches) and root_matches and signature_valid
+        )
+
+        if doc is not None:
+            doc.last_verified_at = datetime.now(UTC)
+            if hasattr(self._fields, "_session") and self._fields._session is not None:
+                self._fields._session.flush()
+
         return {
             "document_id": str(document_id),
-            "ok": not value_mismatches and not edge_mismatches,
+            "ok": anti_tamper_passed,
+            "anti_tamper_passed": anti_tamper_passed,
             "versions_checked": len(versions),
             "edges_checked": len(edges),
+            "merkle_root": recomputed_root,
+            "stored_merkle_root": stored_root,
+            "signature_valid": signature_valid,
+            "root_mismatches": root_mismatches,
             "value_hash_mismatches": value_mismatches,
             "edge_hash_mismatches": edge_mismatches,
-            "merkle_root": self._merkle_root([e.edge_hash for e in edges]),
         }
 
     def merkle_root(self, document_id: uuid.UUID) -> str:
         edges = self._fields.get_edges_for_document(document_id)
-        return self._merkle_root([e.edge_hash for e in edges])
-
-    @staticmethod
-    def _merkle_root(edge_hashes: list[str]) -> str:
-        if not edge_hashes:
-            return hashlib.new(HASH_ALGORITHM, b"").hexdigest()
-        acc = ""
-        for h in sorted(edge_hashes):
-            acc = hashlib.new(HASH_ALGORITHM, f"{acc}{h}".encode()).hexdigest()
-        return acc
+        return compute_merkle_root([e.edge_hash for e in edges])

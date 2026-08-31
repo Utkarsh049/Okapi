@@ -3,12 +3,21 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from okapi_api.core.sanitization import sanitize_text
 
 
 class DocumentCreate(BaseModel):
     title: str
     doc_type: str
+
+    @field_validator("title", "doc_type", mode="before")
+    @classmethod
+    def sanitize_inputs(cls, v: object) -> object:
+        if isinstance(v, str):
+            return sanitize_text(v)
+        return v
 
 
 class DocumentRead(BaseModel):

@@ -4,9 +4,15 @@
 UV ?= uv
 COMPOSE ?= docker compose -f infra/docker-compose.yml
 
-OPA ?= .tools/opa.exe
+OPA ?= $(shell command -v opa 2>/dev/null || ([ -f .tools/opa ] && echo .tools/opa) || echo .tools/opa.exe)
 
-.PHONY: sync run test lint fmt typecheck check migrate revision seed demo opa-serve opa-test compose-up compose-down
+# Automatically read database URL from .env if present, otherwise default to standard local test DB
+export OKAPI_TEST_DATABASE_URL ?= $(shell grep OKAPI_DATABASE_URL .env 2>/dev/null | cut -d '=' -f2- | tr -d '"' || echo "postgresql+psycopg://okapi_user:okapi_password@localhost:5432/okapi")
+
+.PHONY: dev sync run test test-unit test-int test-sec test-all lint fmt typecheck check gate migrate revision seed demo opa-serve opa-test compose-up compose-down
+
+dev:
+	./scripts/dev.sh
 
 sync:
 	$(UV) sync
@@ -16,6 +22,17 @@ run:
 
 test:
 	$(UV) run pytest
+
+test-unit:
+	$(UV) run pytest apps/api/tests/unit/
+
+test-int:
+	$(UV) run pytest apps/api/tests/integration/
+
+test-sec:
+	$(UV) run pytest apps/api/tests/security/
+
+test-all: test opa-test
 
 lint:
 	$(UV) run ruff check .
@@ -28,6 +45,8 @@ typecheck:
 	$(UV) run mypy
 
 check: lint typecheck test
+
+gate: lint typecheck test-all
 
 migrate:
 	$(UV) run --package okapi-api alembic -c apps/api/alembic.ini upgrade head

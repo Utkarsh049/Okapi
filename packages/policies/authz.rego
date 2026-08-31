@@ -5,24 +5,28 @@ package okapi.authz
 import rego.v1
 
 import data.okapi.abac
+import data.okapi.compliance.cdsco
+import data.okapi.compliance.dpdp
 import data.okapi.compliance.hipaa
 import data.okapi.rbac
 
 default allow := false
 
-# A field-scoped action is allowed only if the structural (RBAC), attribute (ABAC),
-# and every active compliance regime agree.
+# A field-scoped action is allowed only if structural (RBAC), attribute (ABAC),
+# and all active compliance regimes (HIPAA, DPDP, CDSCO) agree.
 allow if {
 	rbac.allow
 	abac.allow
 	hipaa.allow
+	dpdp.allow
+	cdsco.allow
 }
 
-reason := "allowed by rbac + abac + compliance" if allow
+reason := "allowed by rbac + abac + compliance (hipaa, dpdp, cdsco)" if allow
 
 reason := sprintf(
-	"denied (rbac=%v abac=%v hipaa=%v)",
-	[rbac.allow, abac.allow, hipaa.allow],
+	"denied (rbac=%v abac=%v hipaa=%v dpdp=%v cdsco=%v)",
+	[rbac.allow, abac.allow, hipaa.allow, dpdp.allow, cdsco.allow],
 ) if {
 	not allow
 }

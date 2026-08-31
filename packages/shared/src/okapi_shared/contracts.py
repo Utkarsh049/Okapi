@@ -19,6 +19,7 @@ class GateActor(BaseModel):
     # e.g. {"department": "cardiology", "clearance_level": 3} — ABAC keys off these.
     attributes: dict[str, object] = Field(default_factory=dict)
     acting_on_behalf_of: str | None = None
+    jti: str | None = None
 
 
 class PolicyInput(BaseModel):
