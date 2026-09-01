@@ -11,8 +11,10 @@ A high-assurance, backend-first governance platform for AI-assisted workflows in
 Okapi implements 6 core technical mechanisms designed for regulated compliance:
 
 1. **Non-Destructive Field-Level Versioning**: Documents act as containers; every field mutation creates an immutable version node in a Directed Acyclic Graph (DAG) rather than performing an in-place overwrite.
-2. **Cryptographic Lineage Hash Chaining**: Every parent-child relationship in the version tree is hash-chained:  
-   $$\text{edge\_hash} = \text{SHA256}(\text{parent\_version\_id} + \text{parent\_value\_hash} + \text{child\_value\_hash})$$
+2. **Cryptographic Lineage Hash Chaining**: Every parent-child relationship in the version tree is hash-chained:
+   ```text
+   edge_hash = SHA256(parent_version_id + parent_value_hash + child_value_hash)
+   ```
 3. **Dynamic Reactive Invalidation Cascades**: When an upstream field is modified or corrected, Okapi automatically walks downstream dependency graphs across documents and marks stale derived fields.
 4. **Zero-Leakage Semantic RAG & Prompt Sandboxing**: Vector similarity search (pgvector with 384-dimensional dense embeddings) is strictly filtered by Verification Gate permissions *before* candidate retrieval, preventing unauthorized context leakage into LLM prompts. Context is isolated with XML sandboxing and anti-injection instructions.
 5. **Signed Merkle Root Anti-Tamper Verification**: Document Merkle roots are cryptographically signed with HMAC-SHA256 on every mutation. Out-of-band database tampering (direct SQL edits altering values, edge hashes, or DAG structures) is immediately detected with exact mismatch diagnostics.
