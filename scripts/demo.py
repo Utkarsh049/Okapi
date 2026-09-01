@@ -51,19 +51,24 @@ def main() -> None:
     ).json()
     doc_id = doc["id"]
     fields = {}
-    for key, category, signoff in [
-        ("patient.diagnosis", "phi", True),
-        ("patient.care_plan", "clinical", False),
-        ("study.cohort_size", "research", False),
+    for key, category, signoff, has_value in [
+        ("patient.diagnosis", "phi", True, True),
+        ("patient.care_plan", "clinical", False, True),
+        # No role has a write rule for category="research" in rbac.rego (by design,
+        # not an oversight -- see authz_test.rego::test_researcher_cannot_write), so
+        # this one is registered without an initial value to keep the call gated-valid.
+        ("study.cohort_size", "research", False, False),
     ]:
+        payload: dict[str, object] = {
+            "field_key": key,
+            "category": category,
+            "requires_signoff": signoff,
+        }
+        if has_value:
+            payload["value"] = f"{key} :: v1"
         f = client.post(
             f"{API}/documents/{doc_id}/fields",
-            json={
-                "field_key": key,
-                "category": category,
-                "requires_signoff": signoff,
-                "value": f"{key} :: v1",
-            },
+            json=payload,
             headers=_headers(clinician),
         ).json()
         fields[key] = f

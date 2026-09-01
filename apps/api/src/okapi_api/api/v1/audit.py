@@ -10,11 +10,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from okapi_api.core.deps import CurrentActor, get_audit_repo
+from okapi_api.core.rate_limit import RateLimiter
 from okapi_api.repositories.audit_repository import AuditRepository
 from okapi_api.schemas.audit import AuditRead
 from okapi_shared.enums import ActorType, Decision
 
-router = APIRouter(prefix="/audit", tags=["audit"])
+router = APIRouter(prefix="/audit", tags=["audit"], dependencies=[Depends(RateLimiter())])
 
 
 @router.get("", response_model=list[AuditRead])

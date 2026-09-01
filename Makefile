@@ -9,7 +9,7 @@ OPA ?= $(shell command -v opa 2>/dev/null || ([ -f .tools/opa ] && echo .tools/o
 # Automatically read database URL from .env if present, otherwise default to standard local test DB
 export OKAPI_TEST_DATABASE_URL ?= $(shell grep OKAPI_DATABASE_URL .env 2>/dev/null | cut -d '=' -f2- | tr -d '"' || echo "postgresql+psycopg://okapi_user:okapi_password@localhost:5432/okapi")
 
-.PHONY: dev sync run test test-unit test-int test-sec test-all lint fmt typecheck check gate migrate revision seed demo opa-serve opa-test compose-up compose-down
+.PHONY: dev sync run test test-unit test-int test-sec test-all lint fmt typecheck check gate migrate revision seed demo benchmark opa-serve opa-test compose-up compose-down
 
 dev:
 	./scripts/dev.sh
@@ -59,6 +59,9 @@ seed:
 
 demo:
 	$(UV) run --package okapi-api python scripts/demo.py
+
+benchmark:
+	$(UV) run --package okapi-api python scripts/benchmark.py
 
 opa-serve:
 	$(OPA) run --server --addr localhost:8181 packages/policies

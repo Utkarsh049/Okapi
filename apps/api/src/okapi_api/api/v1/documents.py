@@ -13,10 +13,13 @@ from okapi_api.core.deps import (
     get_edit_service,
     get_extraction_service,
     get_field_repo,
+    get_gate,
     get_integrity_service,
     get_retrieval_service,
     get_versioning_service,
 )
+from okapi_api.core.rate_limit import RateLimiter
+from okapi_api.gate.gate import Gate
 from okapi_api.repositories.document_repository import DocumentRepository
 from okapi_api.repositories.field_repository import FieldRepository
 from okapi_api.schemas.document import DocumentCreate, DocumentRead
@@ -30,7 +33,7 @@ from okapi_api.services.integrity_service import IntegrityService
 from okapi_api.services.retrieval_service import RetrievalService
 from okapi_api.services.versioning_service import VersioningService
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(prefix="/documents", tags=["documents"], dependencies=[Depends(RateLimiter())])
 
 
 @router.post("", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
@@ -50,8 +53,10 @@ def register_field(
     docs: Annotated[DocumentRepository, Depends(get_document_repo)],
     fields: Annotated[FieldRepository, Depends(get_field_repo)],
     versioning: Annotated[VersioningService, Depends(get_versioning_service)],
+    gate: Annotated[Gate, Depends(get_gate)],
 ) -> object:
-    if docs.get(document_id) is None:
+    document = docs.get(document_id)
+    if document is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found")
     field = fields.register_field(
         document_id=document_id,
@@ -61,6 +66,9 @@ def register_field(
         category=body.category,
     )
     if body.value is not None:
+        # Registering a field is metadata-only and ungated; writing an initial
+        # value is a real data write and must pass through the Gate like any edit.
+        gate.check_write(actor=actor, document=document, field=field)
         versioning.create_version(
             field_id=field.id, new_value=body.value, actor_id=uuid.UUID(actor.sub)
         )
@@ -76,6 +84,7 @@ def extract_document_fields(
     fields: Annotated[FieldRepository, Depends(get_field_repo)],
     versioning: Annotated[VersioningService, Depends(get_versioning_service)],
     extraction: Annotated[ExtractionService, Depends(get_extraction_service)],
+    gate: Annotated[Gate, Depends(get_gate)],
 ) -> object:
     document = docs.get(document_id)
     if document is None:
@@ -93,6 +102,8 @@ def extract_document_fields(
                 requires_signoff=item.requires_signoff,
                 category=item.category,
             )
+            # Same write-needs-Gate rule as register_field above.
+            gate.check_write(actor=actor, document=document, field=field)
             versioning.create_version(
                 field_id=field.id,
                 new_value=item.value,

@@ -4,8 +4,6 @@
 ``POST /auth/revoke`` blacklists the active JWT ID (jti) in the token revocation store.
 """
 
-import threading
-import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -17,46 +15,15 @@ from okapi_api.core.deps import (
     get_user_repo,
     oauth2_scheme,
 )
+from okapi_api.core.rate_limit import get_global_rate_limiter
 from okapi_api.core.security import decode_access_token, encode_access_token, verify_password
 from okapi_api.core.token_store import TokenRevocationStore
 from okapi_api.repositories.user_repository import UserRepository
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-
-class LoginAttemptTracker:
-    """In-memory rate limiter to mitigate brute-force and credential stuffing attacks."""
-
-    def __init__(self, max_attempts: int = 5, window_seconds: int = 60) -> None:
-        self._lock = threading.Lock()
-        self._attempts: dict[str, list[float]] = {}
-        self._max_attempts = max_attempts
-        self._window_seconds = window_seconds
-
-    def check(self, key: str) -> None:
-        now = time.time()
-        with self._lock:
-            timestamps = [t for t in self._attempts.get(key, []) if now - t < self._window_seconds]
-            if len(timestamps) >= self._max_attempts:
-                raise HTTPException(
-                    status.HTTP_429_TOO_MANY_REQUESTS,
-                    "Too many failed login attempts. Please wait before retrying.",
-                )
-            self._attempts[key] = timestamps
-
-    def record_failure(self, key: str) -> None:
-        now = time.time()
-        with self._lock:
-            timestamps = [t for t in self._attempts.get(key, []) if now - t < self._window_seconds]
-            timestamps.append(now)
-            self._attempts[key] = timestamps
-
-    def clear(self, key: str) -> None:
-        with self._lock:
-            self._attempts.pop(key, None)
-
-
-_login_tracker = LoginAttemptTracker()
+_LOGIN_MAX_ATTEMPTS = 5
+_LOGIN_WINDOW_SECONDS = 60.0
 
 
 @router.post("/token")
@@ -65,17 +32,25 @@ def issue_token(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
     users: Annotated[UserRepository, Depends(get_user_repo)],
 ) -> dict[str, str]:
-    # Key rate limiting by client IP and username
+    # Key rate limiting by client IP and username; counts every attempt (not just
+    # failures) so a string of failures followed by one success can't reset the
+    # window and keep a credential-stuffing run going indefinitely.
     client_ip = request.client.host if request.client else "unknown"
-    rate_key = f"{client_ip}:{form.username.lower()}"
-    _login_tracker.check(rate_key)
+    rate_key = f"login:{client_ip}:{form.username.lower()}"
+    allowed, retry_after = get_global_rate_limiter().check_rate_limit(
+        rate_key, max_requests=_LOGIN_MAX_ATTEMPTS, window_seconds=_LOGIN_WINDOW_SECONDS
+    )
+    if not allowed:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many failed login attempts. Please wait before retrying.",
+            headers={"Retry-After": str(retry_after)},
+        )
 
     user = users.get_by_email(form.username)
     if user is None or not verify_password(form.password, user.password_hash):
-        _login_tracker.record_failure(rate_key)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "incorrect email or password")
 
-    _login_tracker.clear(rate_key)
     token = encode_access_token(
         {
             "sub": str(user.id),
