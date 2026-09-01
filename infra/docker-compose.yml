@@ -19,7 +19,7 @@ services:
     networks: [okapi_net]
 
   opa:
-    image: openpolicyagent/opa:latest-rootless
+    image: openpolicyagent/opa:latest
     command:
       - "run"
       - "--server"
