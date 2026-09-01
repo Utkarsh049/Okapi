@@ -72,7 +72,7 @@ Okapi/
 #### `repositories/` — Persistence Layer (PostgreSQL / pgvector)
 | File | Purpose |
 |---|---|
-| `document_repository.py` | Document container CRUD and Merkle root signature persistence. |
+| `document_repository.py` | Document container CRUD, Merkle root signature persistence, and compliance-metadata partial updates. |
 | `field_repository.py` | Fields, versions, lineage edges, references, and recursive CTE ancestry. |
 | `embedding_repository.py` | Vector embedding storage and pgvector similarity queries. |
 | `audit_repository.py` | Immutable append-only audit log storage. |
@@ -81,7 +81,7 @@ Okapi/
 #### `models/` — SQLAlchemy ORM Models
 | File | Purpose |
 |---|---|
-| `document.py` | `documents` table (`id`, `title`, `doc_type`, `merkle_root`, `merkle_signature`, `last_verified_at`). |
+| `document.py` | `documents` table (`id`, `title`, `doc_type`, `merkle_root`, `merkle_signature`, `last_verified_at`) plus 10 nullable compliance-metadata columns (`consent_status`, `consent_purposes`, `is_minor`, `parental_consent`, `batch_status`, `is_lot_release`, `is_sae`, `deidentified`, `irb_waiver`, `baa_active`) forwarded to OPA by `Gate._doc_meta`. |
 | `field.py` | `fields` and `field_versions` tables (DAG parent arrays, content hashes). |
 | `field_embedding.py` | `field_embeddings` table (pgvector 384-d dense embeddings per version). |
 | `lineage.py` | `lineage_edges` table (hash-linked DAG edges). |
@@ -94,7 +94,7 @@ Okapi/
 | File | Purpose |
 |---|---|
 | `auth.py` | `POST /auth/token`, `POST /auth/revoke`. |
-| `documents.py` | `POST /documents`, `POST /{id}/fields`, `PATCH /{id}/fields/{field_id}`, `POST /{id}/extract`, `POST /{id}/query`, `GET /{id}/lineage`, `GET /{id}/integrity`. |
+| `documents.py` | `POST /documents`, `PATCH /{id}/compliance` (compliance_officer-only), `POST /{id}/fields`, `PATCH /{id}/fields/{field_id}`, `POST /{id}/extract`, `POST /{id}/query`, `GET /{id}/lineage`, `GET /{id}/integrity`. |
 | `fields.py` | `POST /fields/{field_id}/signoff`. |
 | `forms.py` | `POST /forms/{form_id}/autofill`, `POST /forms/{form_id}/submit`. |
 | `audit.py` | `GET /audit`. |
@@ -122,3 +122,17 @@ Okapi/
 | `security/` | Adversarial attacks & security boundaries | `test_gate_bypass_attempts.py`, `test_privilege_escalation.py`, `test_tamper_detection.py`, `test_cross_tenant_leakage.py` |
 | `integration/` | End-to-end flows against PostgreSQL | `test_anti_tamper_integrity.py`, `test_gated_form_submission.py`, `test_input_fuzzing.py`, `test_zero_leakage_rag.py`, `test_field_embeddings.py`, `test_compliance_regimes.py`, `test_auth_security.py`, `test_signoff_security.py` |
 | `unit/` | Pure business logic and cryptographic tests | `test_merkle_crypto.py`, `test_embedding_service.py`, `test_extraction_service.py`, `test_form_fill_service.py`, `test_rag_security.py`, `test_rate_limiting.py`, `test_security_middleware.py`, `test_gate.py` |
+
+---
+
+## 5. `scripts/`
+
+| File | Purpose |
+|---|---|
+| `bootstrap.sh` | First-time local setup. |
+| `dev.sh` | Starts OPA + FastAPI for local development; downloads a standalone OPA binary into `.tools/` if none is on `PATH`. |
+| `fmt.sh` | Formatting shortcut. |
+| `migrate.sh` | Runs Alembic migrations. |
+| `seed.py` | Seeds demo users (clinician, researcher, compliance_officer, ai_agent) and a demo document. |
+| `demo.py` | Scripted 10-step end-to-end walkthrough against a live server (tokens, versions, merge, lineage, gated read, AI-vs-PHI, tamper+integrity, audit). |
+| `benchmark.py` | Standalone performance benchmark: full edit-pipeline latency and Merkle verification latency at 10/100/500 versions (`make benchmark`). |

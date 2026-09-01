@@ -68,8 +68,10 @@ Base path: `/api/v1` (defined in `okapi_shared.constants.API_V1_PREFIX`).
 * **`POST /api/v1/auth/revoke`**: Revokes an active token by its `jti` claim, blacklisting it in the thread-safe `TokenStore`.
 
 ### Document Containers
-* **`POST /api/v1/documents`**: Creates a new document container (`title`, `doc_type`).
-* **`GET /api/v1/documents/{document_id}`**: Retrieves document metadata, signed `merkle_root`, `merkle_signature`, and `last_verified_at`.
+* **`POST /api/v1/documents`**: Creates a new document container (`title`, `doc_type`). Deliberately excludes compliance metadata — see below.
+* **`PATCH /api/v1/documents/{document_id}/compliance`**: Gated update of a document's compliance metadata (`consent_status`, `consent_purposes`, `is_minor`, `parental_consent`, `batch_status`, `is_lot_release`, `is_sae`, `deidentified`, `irb_waiver`, `baa_active`). Restricted to `compliance_officer` via `Gate.check_manage_compliance` (a dedicated `manage_compliance` action). Not settable at document creation on purpose, so the update gate can't be bypassed by just creating a new document. Partial update — only supplied fields change.
+
+> No plain `GET /api/v1/documents/{document_id}` exists — there is currently no endpoint that reads back a document's own container fields (title, `merkle_root`, etc.) outside of what the compliance-update response happens to return.
 
 ### Field Registration & Gated Writes
 * **`POST /api/v1/documents/{document_id}/fields`**: Registers a field on a document (`field_key`, `field_type`, `requires_signoff`, `category`, `value`).
