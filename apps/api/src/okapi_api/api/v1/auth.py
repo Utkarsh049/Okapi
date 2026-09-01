@@ -15,12 +15,20 @@ from okapi_api.core.deps import (
     get_user_repo,
     oauth2_scheme,
 )
-from okapi_api.core.rate_limit import get_global_rate_limiter
+from okapi_api.core.rate_limit import RateLimiter, get_global_rate_limiter
 from okapi_api.core.security import decode_access_token, encode_access_token, verify_password
 from okapi_api.core.token_store import TokenRevocationStore
 from okapi_api.repositories.user_repository import UserRepository
+from okapi_api.schemas.auth import DelegateRequest
+from okapi_shared.enums import ActorType
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Only roles that already have genuine independent PHI access may delegate --
+# otherwise a role with no PHI access of its own (e.g. researcher) could launder
+# access through an AI agent, since rbac.rego's ai_agent read rule doesn't re-check
+# who delegated, only that someone did.
+_DELEGATION_ALLOWED_ROLES = {"clinician", "compliance_officer"}
 
 _LOGIN_MAX_ATTEMPTS = 5
 _LOGIN_WINDOW_SECONDS = 60.0
@@ -57,6 +65,38 @@ def issue_token(
             "role": user.role,
             "actor_type": user.actor_type.value,
             "attributes": user.attributes,
+        }
+    )
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post("/delegate", dependencies=[Depends(RateLimiter())])
+def delegate_to_agent(
+    body: DelegateRequest,
+    actor: CurrentActor,
+    users: Annotated[UserRepository, Depends(get_user_repo)],
+) -> dict[str, str]:
+    """Issue a scoped token for an AI agent to act on the caller's behalf
+    (HIPAA AI delegation boundary -- see hipaa.rego rule 1)."""
+    if actor.actor_type != ActorType.HUMAN or actor.role not in _DELEGATION_ALLOWED_ROLES:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "only a clinician or compliance officer may delegate to an AI agent",
+        )
+
+    agent = users.get_by_email(body.agent_email)
+    if agent is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "agent account not found")
+    if agent.role != "ai_agent":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "target account is not an AI agent")
+
+    token = encode_access_token(
+        {
+            "sub": str(agent.id),
+            "role": agent.role,
+            "actor_type": agent.actor_type.value,
+            "attributes": agent.attributes,
+            "acting_on_behalf_of": actor.sub,
         }
     )
     return {"access_token": token, "token_type": "bearer"}
