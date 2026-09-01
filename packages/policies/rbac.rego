@@ -32,3 +32,10 @@ allow if {
 	input.actor.role == "ai_agent"
 	input.action == "read"
 }
+
+# Only compliance officers may update a document's compliance metadata
+# (consent status, batch status, minor/SAE flags, etc.).
+allow if {
+	input.actor.role == "compliance_officer"
+	input.action == "manage_compliance"
+}

@@ -20,6 +20,16 @@ class FakeAudit:
 class FakeDoc:
     id = uuid.uuid4()
     doc_type = "patient_record"
+    consent_status = None
+    consent_purposes = None
+    is_minor = None
+    parental_consent = None
+    batch_status = None
+    is_lot_release = None
+    is_sae = None
+    deidentified = None
+    irb_waiver = None
+    baa_active = None
 
 
 class FakeField:

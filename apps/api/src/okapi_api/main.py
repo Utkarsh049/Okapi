@@ -26,7 +26,11 @@ app.add_middleware(PayloadSizeLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    # This API authenticates via Bearer tokens in the Authorization header, not
+    # cookies -- credentialed CORS mode was never actually needed, and paired
+    # with a wildcard origin it's an invalid combination browsers reject anyway
+    # (Fetch spec forbids Access-Control-Allow-Origin: * with credentials).
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -22,7 +22,7 @@ from okapi_api.core.rate_limit import RateLimiter
 from okapi_api.gate.gate import Gate
 from okapi_api.repositories.document_repository import DocumentRepository
 from okapi_api.repositories.field_repository import FieldRepository
-from okapi_api.schemas.document import DocumentCreate, DocumentRead
+from okapi_api.schemas.document import DocumentComplianceUpdate, DocumentCreate, DocumentRead
 from okapi_api.schemas.extraction import ExtractionRequest, ExtractionResponse
 from okapi_api.schemas.field import FieldPatch, FieldRead, FieldRegister, VersionRead
 from okapi_api.schemas.lineage import LineageGraph
@@ -43,6 +43,21 @@ def create_document(
     docs: Annotated[DocumentRepository, Depends(get_document_repo)],
 ) -> object:
     return docs.create(title=body.title, doc_type=body.doc_type, created_by=uuid.UUID(actor.sub))
+
+
+@router.patch("/{document_id}/compliance", response_model=DocumentRead)
+def update_document_compliance(
+    document_id: uuid.UUID,
+    body: DocumentComplianceUpdate,
+    actor: CurrentActor,
+    docs: Annotated[DocumentRepository, Depends(get_document_repo)],
+    gate: Annotated[Gate, Depends(get_gate)],
+) -> object:
+    document = docs.get(document_id)
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found")
+    gate.check_manage_compliance(actor=actor, document=document)
+    return docs.update_compliance(document_id, **body.model_dump(exclude_unset=True))
 
 
 @router.post("/{document_id}/fields", response_model=FieldRead, status_code=status.HTTP_201_CREATED)

@@ -57,7 +57,10 @@ USERS = [
         "agent@okapi.dev",
         "Okapi Extraction Agent",
         "ai_agent",
-        {"department": "platform", "clearance_level": 2, "employment_type": "service_account"},
+        # clearance_level 3 matches abac.rego's phi threshold -- lets a fully
+        # delegated agent (see /auth/delegate) actually clear ABAC too, not just
+        # the HIPAA delegation check, so the full success path is demonstrable.
+        {"department": "platform", "clearance_level": 3, "employment_type": "service_account"},
     ),
 ]
 

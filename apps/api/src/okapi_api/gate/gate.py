@@ -30,7 +30,29 @@ def _doc_meta(document: Document, field: Field) -> dict[str, object]:
         "doc_type": document.doc_type,
         "field_category": field.category,
         "requires_signoff": field.requires_signoff,
+        # Compliance metadata (DPDP/CDSCO/HIPAA) -- previously never reached OPA at
+        # all, which is why those regimes could never actually deny anything live.
+        "consent_status": document.consent_status,
+        "consent_purposes": document.consent_purposes,
+        "is_minor": document.is_minor,
+        "parental_consent": document.parental_consent,
+        "batch_status": document.batch_status,
+        "is_lot_release": document.is_lot_release,
+        "is_sae": document.is_sae,
+        "deidentified": document.deidentified,
+        "irb_waiver": document.irb_waiver,
+        "baa_active": document.baa_active,
     }
+
+
+def _compliance_action_meta(document: Document) -> dict[str, object]:
+    # field_category must be present as an explicit null, not omitted: abac.rego's
+    # object.get(_required_clearance, input.document_metadata.field_category, 0)
+    # only falls back to its default when the key reference is defined-but-absent
+    # (e.g. null) -- a genuinely missing key makes the reference itself undefined,
+    # which makes the whole expression (and so abac.allow) undefined too. Verified
+    # empirically against a live OPA instance, not assumed.
+    return {"document_id": str(document.id), "doc_type": document.doc_type, "field_category": None}
 
 
 class Gate:
@@ -83,3 +105,27 @@ class Gate:
             if self._decide(actor, EdgeAction.READ, document, field).allow:
                 allowed.append(field.field_key)
         return allowed
+
+    def check_manage_compliance(self, *, actor: GateActor, document: Document) -> PolicyResult:
+        """Raise ``GateDenied`` unless the actor may update this document's
+        compliance metadata (consent status, batch status, etc.)."""
+        result = self._policy.evaluate(
+            PolicyInput(
+                actor=actor,
+                action=EdgeAction.MANAGE_COMPLIANCE,
+                field_key="$document$",
+                document_metadata=_compliance_action_meta(document),
+            )
+        )
+        self._audit.record(
+            actor_id=uuid.UUID(actor.sub),
+            actor_type=actor.actor_type,
+            action=EdgeAction.MANAGE_COMPLIANCE.value,
+            decision=Decision.ALLOW if result.allow else Decision.DENY,
+            reason=result.reason,
+            document_id=document.id,
+            field_id=None,
+        )
+        if not result.allow:
+            raise GateDenied(result.reason)
+        return result

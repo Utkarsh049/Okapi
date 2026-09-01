@@ -6,8 +6,9 @@ and the reference walk that powers propagation (§4.5).
 
 import uuid
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
 
 from okapi_api.models import Field, FieldReference, FieldVersion, LineageEdge
@@ -63,6 +64,18 @@ class FieldRepository:
         amendment_note: str | None = None,
         status: str = "active",
     ) -> FieldVersion:
+        # Guarantee strictly increasing created_at per field: two versions created
+        # in rapid succession can otherwise land on the same wall-clock timestamp
+        # (this app's clock resolution, or two calls in the same DB transaction --
+        # Postgres now() is transaction-start time, not statement time, so it
+        # wouldn't help either), which makes ordering by created_at ambiguous.
+        now = datetime.now(UTC)
+        latest = self._session.scalars(
+            select(func.max(FieldVersion.created_at)).where(FieldVersion.field_id == field_id)
+        ).first()
+        if latest is not None and latest >= now:
+            now = latest + timedelta(microseconds=1)
+
         version = FieldVersion(
             field_id=field_id,
             value=value,
@@ -72,6 +85,7 @@ class FieldRepository:
             is_ai_generated=is_ai_generated,
             amendment_note=amendment_note,
             status=status,
+            created_at=now,
         )
         self._session.add(version)
         self._session.flush()

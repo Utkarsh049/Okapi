@@ -27,6 +27,7 @@ class EdgeAction(StrEnum):
     READ = "read"
     WRITE = "write"
     SIGNOFF = "signoff"
+    MANAGE_COMPLIANCE = "manage_compliance"
 
 
 class ReferenceStatus(StrEnum):

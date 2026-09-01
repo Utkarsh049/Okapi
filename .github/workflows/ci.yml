@@ -15,6 +15,11 @@ jobs:
           enable-cache: true
       - run: uv python install
       - run: uv sync --frozen
+      # Only the db service -- pytest never talks to live OPA (StubPolicyClient
+      # in conftest.py), and the separate `policies` job below already covers
+      # real OPA/Rego verification via `opa test`.
+      - name: Start test database
+        run: docker compose -f infra/docker-compose.test.yml up -d --wait db
       - run: uv run ruff check .
       - run: uv run black --check .
       - run: uv run mypy

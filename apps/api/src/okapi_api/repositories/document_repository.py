@@ -38,5 +38,14 @@ class DocumentRepository:
             self._session.flush()
         return doc
 
+    def update_compliance(self, document_id: uuid.UUID, **fields: object) -> Document | None:
+        """Partial update of compliance metadata; only the passed keys are changed."""
+        doc = self.get(document_id)
+        if doc is not None:
+            for key, value in fields.items():
+                setattr(doc, key, value)
+            self._session.flush()
+        return doc
+
     def list_all(self) -> list[Document]:
         return list(self._session.scalars(select(Document).order_by(Document.created_at)))
