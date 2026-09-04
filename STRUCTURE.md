@@ -27,7 +27,10 @@ Okapi/
 | `.env.example` | Environment configuration template (`OKAPI_` prefix). |
 | `Makefile` | Build, test, lint, format, migration, and dev server shortcuts. |
 | `README.md` | Monorepo overview, patent mechanisms, and quickstart guide. |
+| `MECHANISM.md` | Technical mechanisms, mathematical formulations, worked examples, and Section 3(k) Indian patent claims mapping. |
 | `STRUCTURE.md` | This file. |
+| `benchmark_results.md` | Empirical benchmark results report and comparative architectural baseline matrix. |
+| `benchmark_results.json` | Machine-readable benchmark outputs and statistical metrics. |
 | `timeline.md` | Milestone progress (git-ignored). |
 
 ---
@@ -93,11 +96,12 @@ Okapi/
 #### `api/v1/` — HTTP Endpoints
 | File | Purpose |
 |---|---|
-| `auth.py` | `POST /auth/token`, `POST /auth/revoke`. |
+| `auth.py` | `POST /auth/token`, `POST /auth/delegate`, `POST /auth/revoke`. |
 | `documents.py` | `POST /documents`, `PATCH /{id}/compliance` (compliance_officer-only), `POST /{id}/fields`, `PATCH /{id}/fields/{field_id}`, `POST /{id}/extract`, `POST /{id}/query`, `GET /{id}/lineage`, `GET /{id}/integrity`. |
 | `fields.py` | `POST /fields/{field_id}/signoff`. |
 | `forms.py` | `POST /forms/{form_id}/autofill`, `POST /forms/{form_id}/submit`. |
 | `audit.py` | `GET /audit`. |
+| `health.py` | `GET /health/live`, `GET /health/ready`. |
 
 ---
 
@@ -106,22 +110,23 @@ Okapi/
 | File | Purpose |
 |---|---|
 | `authz.rego` | Aggregates decisions across RBAC, ABAC, and compliance regimes. |
-| `rbac.rego` | Role-based permissions (clinician, researcher, auditor, ai_agent). |
+| `rbac.rego` | Role-based permissions (clinician, researcher, compliance_officer, auditor, chemist, ai_agent). |
 | `abac.rego` | Attribute-based clearance evaluation (`phi`:3, `clinical`:2, `research`:1). |
 | `compliance/hipaa.rego` | Minimum necessary rule, AI delegation constraints, BAA enforcement. |
 | `compliance/dpdp.rego` | Purpose limitation, consent withdrawal, and minor data protection. |
 | `compliance/cdsco.rego` | Pharma batch release lot immutability and qualified person sign-off. |
-| `tests/authz_test.rego` | 19 OPA unit test assertions covering all policy paths. |
+| `tests/authz_test.rego` | OPA unit test assertions covering RBAC, ABAC, and decision shapes. |
+| `tests/compliance_test.rego` | OPA unit test assertions covering HIPAA, DPDP, and CDSCO regimes. |
 
 ---
 
-## 4. `apps/api/tests/` — Test Suites (81 Tests)
+## 4. `apps/api/tests/` — Test Suites (84 Tests)
 
 | Directory | Purpose | Key Files |
 |---|---|---|
 | `security/` | Adversarial attacks & security boundaries | `test_gate_bypass_attempts.py`, `test_privilege_escalation.py`, `test_tamper_detection.py`, `test_cross_tenant_leakage.py` |
-| `integration/` | End-to-end flows against PostgreSQL | `test_anti_tamper_integrity.py`, `test_gated_form_submission.py`, `test_input_fuzzing.py`, `test_zero_leakage_rag.py`, `test_field_embeddings.py`, `test_compliance_regimes.py`, `test_auth_security.py`, `test_signoff_security.py` |
-| `unit/` | Pure business logic and cryptographic tests | `test_merkle_crypto.py`, `test_embedding_service.py`, `test_extraction_service.py`, `test_form_fill_service.py`, `test_rag_security.py`, `test_rate_limiting.py`, `test_security_middleware.py`, `test_gate.py` |
+| `integration/` | End-to-end flows against PostgreSQL | `test_anti_tamper_integrity.py`, `test_gated_form_submission.py`, `test_input_fuzzing.py`, `test_zero_leakage_rag.py`, `test_field_embeddings.py`, `test_compliance_regimes.py`, `test_auth_security.py`, `test_signoff_security.py`, `test_benchmark_harness.py`, `test_seed_demo.py`, `test_write_read_flow.py` |
+| `unit/` | Pure business logic and cryptographic tests | `test_merkle_crypto.py`, `test_embedding_service.py`, `test_extraction_service.py`, `test_form_fill_service.py`, `test_rag_security.py`, `test_rate_limiting.py`, `test_security_middleware.py`, `test_gate.py`, `test_models.py`, `test_versioning_lineage.py`, `test_security_auth.py`, `test_integrity_service.py`, `test_health.py` |
 
 ---
 
@@ -131,8 +136,8 @@ Okapi/
 |---|---|
 | `bootstrap.sh` | First-time local setup. |
 | `dev.sh` | Starts OPA + FastAPI for local development; downloads a standalone OPA binary into `.tools/` if none is on `PATH`. |
-| `fmt.sh` | Formatting shortcut. |
+| `fmt.sh` | Formatting shortcut (`ruff check --fix`, `black`). |
 | `migrate.sh` | Runs Alembic migrations. |
-| `seed.py` | Seeds demo users (clinician, researcher, compliance_officer, ai_agent) and a demo document. |
-| `demo.py` | Scripted 10-step end-to-end walkthrough against a live server (tokens, versions, merge, lineage, gated read, AI-vs-PHI, tamper+integrity, audit). |
-| `benchmark.py` | Standalone performance benchmark: full edit-pipeline latency and Merkle verification latency at 10/100/500 versions (`make benchmark`). |
+| `seed.py` | Idempotently provisions 6 multi-clearance users and 5 multi-regime documents with dense pgvector embeddings. |
+| `demo.py` | Scripted 8-scenario end-to-end walkthrough against live server with color-coded ANSI banners. |
+| `benchmark.py` | Standalone empirical performance harness measuring Gate latency, Merkle DAG scaling, invalidation cascades, zero-leakage RAG, and comparative baseline matrix with JSON and Markdown export. |

@@ -69,8 +69,8 @@ The Verification Gate evaluates request metadata against policy bundles written 
 
 * **uv Workspace**: Single lockfile (`uv.lock`), centralized tool configuration (`pyproject.toml`).
 * **Python 3.12** (`.python-version`).
-* **Static Analysis**: `ruff check .`, `black --check .`, and `mypy --strict` (zero errors across 63 source files).
-* **Automated Tests**: **81/81 Pytest tests** and **19/19 OPA policy unit tests** passing.
+* **Static Analysis**: `ruff check .`, `black --check .`, and `mypy --strict` (zero errors across 64 source files).
+* **Automated Tests**: **84/84 Pytest tests** and **19/19 OPA policy unit tests** passing (100% pass rate).
 
 ---
 
@@ -132,6 +132,8 @@ make gate
 
 ## Documentation
 
+* [MECHANISM.md](MECHANISM.md) — Complete patent enablement specification, mathematical formulations, worked examples, and Section 3(k) claims mapping.
 * [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) — Comprehensive technical reference, request flow, and full API endpoint documentation.
-* [docs/DEMO.md](docs/DEMO.md) — Step-by-step end-to-end scenario walkthrough.
+* [docs/DEMO.md](docs/DEMO.md) — Step-by-step end-to-end multi-actor scenario walkthrough.
+* [benchmark_results.md](benchmark_results.md) — Empirical performance benchmarks & architectural comparison matrix.
 * [STRUCTURE.md](STRUCTURE.md) — Detailed monorepo file and directory structure map.
