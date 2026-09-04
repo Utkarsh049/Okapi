@@ -9,6 +9,7 @@ import uuid
 import pytest
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
+from starlette.testclient import TestClient
 
 from okapi_api.core.security import hash_password
 from okapi_api.models import User
@@ -34,7 +35,7 @@ def _seed_clinician(engine: Engine) -> str:
     return email
 
 
-def test_full_write_and_read_flow(api_client, engine: Engine) -> None:  # type: ignore[no-untyped-def]
+def test_full_write_and_read_flow(api_client: TestClient, engine: Engine) -> None:
     email = _seed_clinician(engine)
     token = api_client.post(f"{API}/auth/token", data={"username": email, "password": "pw"}).json()[
         "access_token"
