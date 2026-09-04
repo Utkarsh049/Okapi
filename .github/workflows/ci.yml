@@ -24,6 +24,9 @@ jobs:
       - run: uv run black --check .
       - run: uv run mypy
       - run: uv run pytest
+        env:
+          OKAPI_DATABASE_URL: postgresql+psycopg://okapi:okapi@localhost:55432/okapi_test
+          OKAPI_TEST_DATABASE_URL: postgresql+psycopg://okapi:okapi@localhost:55432/okapi_test
 
   policies:
     runs-on: ubuntu-latest

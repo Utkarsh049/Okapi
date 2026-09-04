@@ -33,6 +33,13 @@ allow if {
 	input.action == "read"
 }
 
+# Quality auditors and manufacturing chemists may read, write, and sign off on compliance fields.
+allow if {
+	input.actor.role in {"auditor", "chemist"}
+	input.action in {"read", "write", "signoff"}
+	input.document_metadata.field_category == "compliance"
+}
+
 # Only compliance officers may update a document's compliance metadata
 # (consent status, batch status, minor/SAE flags, etc.).
 allow if {

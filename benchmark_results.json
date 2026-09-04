@@ -1,0 +1,273 @@
+{
+  "benchmark_suite": "Okapi Empirical Performance Harness",
+  "timestamp": "2026-09-04T16:13:43.672476+00:00",
+  "mode": "quick",
+  "document_id": "0f46e88b-ea79-41d5-aaf0-bf2ae716a7a1",
+  "comparative_matrix": {
+    "tamper_detection_rate_pct": {
+      "okapi": 100.0,
+      "naive_baseline": 0.0
+    },
+    "policy_violation_prevention_pct": {
+      "okapi": 100.0,
+      "naive_baseline": 0.0
+    },
+    "zero_leakage_phi_isolation_pct": {
+      "okapi": 100.0,
+      "naive_baseline": 0.0
+    },
+    "historical_provenance_retention_pct": {
+      "okapi": 100.0,
+      "naive_baseline": 0.0
+    },
+    "mean_write_latency_ms": {
+      "okapi": 3.007,
+      "naive_baseline": 0.167
+    },
+    "cryptographic_guarantee": {
+      "okapi": "HMAC-SHA256 Signed Merkle Root + DAG Lineage Hash Chain",
+      "naive_baseline": "None (Vulnerable to silent out-of-band manipulation)"
+    }
+  },
+  "results": [
+    {
+      "name": "Gate: Human Clinician Write Check",
+      "category": "Verification Gate",
+      "unit": "ms",
+      "n": 20,
+      "min": 0.4448,
+      "mean": 0.9813,
+      "p50": 0.839,
+      "p95": 1.2531,
+      "p99": 1.2531,
+      "max": 3.559,
+      "throughput_ops_sec": 1019.08,
+      "metadata": {
+        "role": "clinician",
+        "action": "write"
+      }
+    },
+    {
+      "name": "Gate: Human Multi-Field Read (1 fields)",
+      "category": "Verification Gate",
+      "unit": "ms",
+      "n": 20,
+      "min": 0.3829,
+      "mean": 0.6048,
+      "p50": 0.5903,
+      "p95": 0.9739,
+      "p99": 0.9739,
+      "max": 1.177,
+      "throughput_ops_sec": 1653.48,
+      "metadata": {
+        "role": "clinician",
+        "field_count": 1
+      }
+    },
+    {
+      "name": "Gate: AI Agent Field Access Filter (1 fields)",
+      "category": "Verification Gate",
+      "unit": "ms",
+      "n": 20,
+      "min": 0.502,
+      "mean": 0.7754,
+      "p50": 0.7565,
+      "p95": 1.0138,
+      "p99": 1.0138,
+      "max": 1.0305,
+      "throughput_ops_sec": 1289.7,
+      "metadata": {
+        "role": "ai_agent",
+        "field_count": 1
+      }
+    },
+    {
+      "name": "Gate: Compliance Policy Rule Management Check",
+      "category": "Verification Gate",
+      "unit": "ms",
+      "n": 20,
+      "min": 0.6091,
+      "mean": 0.9899,
+      "p50": 0.9464,
+      "p95": 1.2942,
+      "p99": 1.2942,
+      "max": 1.3186,
+      "throughput_ops_sec": 1010.16,
+      "metadata": {
+        "role": "clinician",
+        "action": "manage_compliance"
+      }
+    },
+    {
+      "name": "Full Mutation Pipeline (Gate+Version+Lineage+Merkle)",
+      "category": "Data Core Write",
+      "unit": "ms",
+      "n": 10,
+      "min": 11.9969,
+      "mean": 17.792,
+      "p50": 16.4396,
+      "p95": 22.9658,
+      "p99": 22.9658,
+      "max": 25.4281,
+      "throughput_ops_sec": 56.2,
+      "metadata": {}
+    },
+    {
+      "name": "Merkle Anti-Tamper Verify @ 10 versions",
+      "category": "Cryptographic Integrity",
+      "unit": "ms",
+      "n": 10,
+      "min": 1.7828,
+      "mean": 2.0916,
+      "p50": 2.0815,
+      "p95": 2.2392,
+      "p99": 2.2392,
+      "max": 2.7016,
+      "throughput_ops_sec": 478.1,
+      "metadata": {
+        "version_depth": 10
+      }
+    },
+    {
+      "name": "Merkle Anti-Tamper Verify @ 50 versions",
+      "category": "Cryptographic Integrity",
+      "unit": "ms",
+      "n": 10,
+      "min": 2.2768,
+      "mean": 3.1288,
+      "p50": 3.0523,
+      "p95": 3.724,
+      "p99": 3.724,
+      "max": 4.0834,
+      "throughput_ops_sec": 319.61,
+      "metadata": {
+        "version_depth": 50
+      }
+    },
+    {
+      "name": "Merkle Anti-Tamper Verify @ 100 versions",
+      "category": "Cryptographic Integrity",
+      "unit": "ms",
+      "n": 10,
+      "min": 3.0099,
+      "mean": 4.6448,
+      "p50": 4.1182,
+      "p95": 6.3738,
+      "p99": 6.3738,
+      "max": 6.6705,
+      "throughput_ops_sec": 215.29,
+      "metadata": {
+        "version_depth": 100
+      }
+    },
+    {
+      "name": "Invalidation Cascade @ 5 downstream refs",
+      "category": "Reactive Invalidation",
+      "unit": "ms",
+      "n": 10,
+      "min": 1.9619,
+      "mean": 2.7126,
+      "p50": 2.5054,
+      "p95": 3.4867,
+      "p99": 3.4867,
+      "max": 3.6227,
+      "throughput_ops_sec": 368.65,
+      "metadata": {
+        "fanout_depth": 5
+      }
+    },
+    {
+      "name": "Invalidation Cascade @ 25 downstream refs",
+      "category": "Reactive Invalidation",
+      "unit": "ms",
+      "n": 10,
+      "min": 8.2938,
+      "mean": 10.0398,
+      "p50": 9.63,
+      "p95": 10.3357,
+      "p99": 10.3357,
+      "max": 15.1698,
+      "throughput_ops_sec": 99.6,
+      "metadata": {
+        "fanout_depth": 25
+      }
+    },
+    {
+      "name": "Invalidation Cascade @ 50 downstream refs",
+      "category": "Reactive Invalidation",
+      "unit": "ms",
+      "n": 10,
+      "min": 18.9388,
+      "mean": 26.6952,
+      "p50": 24.9164,
+      "p95": 35.2589,
+      "p99": 35.2589,
+      "max": 36.0942,
+      "throughput_ops_sec": 37.46,
+      "metadata": {
+        "fanout_depth": 50
+      }
+    },
+    {
+      "name": "Field-Scoped Semantic RAG (Gated 7/10 fields)",
+      "category": "Semantic RAG",
+      "unit": "ms",
+      "n": 10,
+      "min": 4.0948,
+      "mean": 5.0808,
+      "p50": 4.9569,
+      "p95": 5.7524,
+      "p99": 5.7524,
+      "max": 7.0849,
+      "throughput_ops_sec": 196.82,
+      "metadata": {
+        "allowed_count": 7,
+        "leak_rate_pct": 0.0
+      }
+    },
+    {
+      "name": "pgvector Dense Cosine Similarity Search",
+      "category": "Semantic RAG",
+      "unit": "ms",
+      "n": 10,
+      "min": 0.8425,
+      "mean": 0.9023,
+      "p50": 0.8822,
+      "p95": 0.9274,
+      "p99": 0.9274,
+      "max": 1.0602,
+      "throughput_ops_sec": 1108.23,
+      "metadata": {
+        "limit": 5
+      }
+    },
+    {
+      "name": "Okapi Mutation (Gate + DAG Version + Lineage + Merkle)",
+      "category": "Comparative Baseline",
+      "unit": "ms",
+      "n": 10,
+      "min": 2.8399,
+      "mean": 3.0072,
+      "p50": 2.9741,
+      "p95": 3.0834,
+      "p99": 3.0834,
+      "max": 3.3834,
+      "throughput_ops_sec": 332.54,
+      "metadata": {}
+    },
+    {
+      "name": "Naive Architecture (Direct Unchecked SQL In-Place Update)",
+      "category": "Comparative Baseline",
+      "unit": "ms",
+      "n": 10,
+      "min": 0.0934,
+      "mean": 0.1665,
+      "p50": 0.1243,
+      "p95": 0.2098,
+      "p99": 0.2098,
+      "max": 0.5322,
+      "throughput_ops_sec": 6005.02,
+      "metadata": {}
+    }
+  ]
+}
