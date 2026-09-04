@@ -1,5 +1,6 @@
 """Integration tests verifying the seed corpus generator and demo scenario workflow (Phase 12)."""
 
+import os
 import subprocess
 import sys
 
@@ -76,6 +77,8 @@ class MultiRegimeDemoPolicyClient:
 
 def test_seed_script_idempotency_and_corpus_generation(engine: Engine) -> None:
     """Verifies that scripts/seed.py executes cleanly, seeds all domains, and is idempotent."""
+    env = dict(os.environ)
+    env["OKAPI_DATABASE_URL"] = str(engine.url)
     cmd = [
         sys.executable,
         "scripts/seed.py",
@@ -85,6 +88,7 @@ def test_seed_script_idempotency_and_corpus_generation(engine: Engine) -> None:
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
     assert result.returncode == 0, f"Seed script failed with stderr:\n{result.stderr}"
     assert "OKAPI SYNTHETIC CORPUS SEED COMPLETE" in result.stdout
@@ -121,6 +125,7 @@ def test_seed_script_idempotency_and_corpus_generation(engine: Engine) -> None:
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
     assert result2.returncode == 0, f"Seed second run failed with stderr:\n{result2.stderr}"
 
@@ -135,8 +140,10 @@ def test_demo_multi_actor_workflow_scenarios(
 
     try:
         # Run seed first to guarantee base users
+        env = dict(os.environ)
+        env["OKAPI_DATABASE_URL"] = str(engine.url)
         cmd = [sys.executable, "scripts/seed.py"]
-        subprocess.run(cmd, capture_output=True, check=True)
+        subprocess.run(cmd, capture_output=True, check=True, env=env)
 
         # 1. Token Minting & Human-to-AI Delegation
         clinician_tok = api_client.post(

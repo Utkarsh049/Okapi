@@ -1,6 +1,7 @@
 """Integration tests verifying the empirical benchmark and evaluation harness (Phase 11)."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +16,9 @@ def test_benchmark_harness_execution(engine: Engine, tmp_path: Path) -> None:
     """Verifies that scripts/benchmark.py executes hermetically and exports valid reports."""
     json_out = tmp_path / "test_benchmark_results.json"
     md_out = tmp_path / "test_benchmark_results.md"
+
+    env = dict(os.environ)
+    env["OKAPI_DATABASE_URL"] = str(engine.url)
 
     cmd = [
         sys.executable,
@@ -31,6 +35,7 @@ def test_benchmark_harness_execution(engine: Engine, tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
 
     assert result.returncode == 0, f"Benchmark script failed with stderr:\n{result.stderr}"
