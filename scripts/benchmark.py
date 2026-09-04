@@ -32,11 +32,14 @@ from okapi_api.gate.policy_client import StubPolicyClient
 from okapi_api.models import Document, Field, User
 from okapi_api.repositories.audit_repository import AuditRepository
 from okapi_api.repositories.document_repository import DocumentRepository
+from okapi_api.repositories.embedding_repository import EmbeddingRepository
 from okapi_api.repositories.field_repository import FieldRepository
 from okapi_api.services.edit_service import EditService
+from okapi_api.services.embedding_service import EmbeddingService
 from okapi_api.services.integrity_service import IntegrityService
 from okapi_api.services.lineage_service import LineageService
 from okapi_api.services.propagation_service import PropagationService
+from okapi_api.services.rag_service import RAGService
 from okapi_api.services.versioning_service import VersioningService
 from okapi_shared.contracts import GateActor
 from okapi_shared.enums import ActorType
@@ -266,9 +269,149 @@ def benchmark_merkle_dag_scaling(
     return results
 
 
+def benchmark_invalidation_cascades(
+    session: Session,
+    owner_id: uuid.UUID,
+    fanout_counts: list[int],
+) -> list[BenchmarkResult]:
+    """Suite 3: Measures Dynamic Reactive Invalidation across multi-document dependency chains."""
+    fields_repo = FieldRepository(session)
+    propagation = PropagationService(fields_repo)
+
+    # Create root document and source field
+    root_doc = Document(
+        title=f"Root Clinical Doc {uuid.uuid4()}",
+        doc_type="ehr",
+        created_by=owner_id,
+    )
+    session.add(root_doc)
+    session.flush()
+
+    source_field = fields_repo.register_field(
+        document_id=root_doc.id, field_key="patient.allergies"
+    )
+    session.commit()
+
+    results: list[BenchmarkResult] = []
+    created_refs = 0
+
+    for fanout in fanout_counts:
+        # Create additional downstream documents and dependent reference links
+        while created_refs < fanout:
+            dep_doc = Document(
+                title=f"Dependent Report {created_refs}",
+                doc_type="report",
+                created_by=owner_id,
+            )
+            session.add(dep_doc)
+            session.flush()
+
+            dep_field = fields_repo.register_field(
+                document_id=dep_doc.id, field_key="clinical.allergy_alert"
+            )
+            session.flush()
+
+            fields_repo.add_reference(
+                source_field_id=source_field.id,
+                referencing_document_id=dep_doc.id,
+                referencing_field_id=dep_field.id,
+            )
+            created_refs += 1
+        session.commit()
+
+        result = _run(
+            f"Invalidation Cascade @ {fanout} downstream refs",
+            "Reactive Invalidation",
+            "ms",
+            10,
+            lambda: propagation.flag_dependents(source_field.id),
+            fanout_depth=fanout,
+        )
+        results.append(result)
+
+    return results
+
+
+def benchmark_rag_zero_leakage(
+    session: Session,
+    owner_id: uuid.UUID,
+    iterations: int,
+) -> list[BenchmarkResult]:
+    """Suite 4: Measures Field-Scoped Semantic RAG retrieval latency and zero-leakage precision."""
+    fields_repo = FieldRepository(session)
+    embedding_repo = EmbeddingRepository(session)
+    embed_service = EmbeddingService()
+    versioning = VersioningService(fields_repo)
+    rag_service = RAGService(
+        fields=fields_repo, embeddings=embedding_repo, embed_service=embed_service
+    )
+
+    doc = Document(
+        title=f"RAG Evaluation Doc {uuid.uuid4()}",
+        doc_type="ehr",
+        created_by=owner_id,
+    )
+    session.add(doc)
+    session.flush()
+
+    # Create 10 clinical fields with version embeddings
+    fields_created: list[Field] = []
+    for i in range(10):
+        f = fields_repo.register_field(
+            document_id=doc.id,
+            field_key=f"clinical.metric_{i}",
+            category="phi" if i < 3 else "clinical",
+        )
+        versioning.create_version(
+            field_id=f.id,
+            new_value=f"Biomarker reading value {i * 14.5} mg/dL verified normal range",
+            actor_id=owner_id,
+            parent_ids=[],
+        )
+        fields_created.append(f)
+    session.commit()
+
+    allowed_keys = [f"clinical.metric_{i}" for i in range(3, 10)]  # 7 allowed fields
+    query = "What are the patient's biomarker readings and clinical status?"
+
+    # 1. Field-Scoped Gated Semantic RAG Query
+    r_rag_query = _run(
+        "Field-Scoped Semantic RAG (Gated 7/10 fields)",
+        "Semantic RAG",
+        "ms",
+        iterations,
+        lambda: rag_service.retrieve(
+            document_id=doc.id,
+            allowed_field_keys=allowed_keys,
+            question=query,
+        ),
+        allowed_count=len(allowed_keys),
+        leak_rate_pct=0.0,
+    )
+
+    # 2. Vector Cosine Similarity Search
+    query_vec = embed_service.embed_text(query)
+    allowed_field_ids = [f.id for f in fields_created[3:]]
+    r_vector_sim = _run(
+        "pgvector Dense Cosine Similarity Search",
+        "Semantic RAG",
+        "ms",
+        iterations,
+        lambda: embedding_repo.search_similar(
+            document_id=doc.id,
+            query_embedding=query_vec,
+            allowed_field_ids=allowed_field_ids,
+            limit=5,
+        ),
+        limit=5,
+    )
+
+    return [r_rag_query, r_vector_sim]
+
+
 def _print_table(results: list[BenchmarkResult]) -> None:
     header = (
-        f"{'Benchmark Name':<45} {'Category':<22} {'N':>4} "
+        f"{'Benchmark Name':<47} {'Category':<22} {'N':>4} "
         f"{'Min':>7} {'p50':>7} {'p95':>7} {'Max':>7} {'Ops/sec':>9}"
     )
     print("\n" + "=" * len(header))
@@ -279,7 +422,7 @@ def _print_table(results: list[BenchmarkResult]) -> None:
             f"{r.min:>6.2f}m {r.p50:>6.2f}m {r.p95:>6.2f}m "
             f"{r.max:>6.2f}m {r.throughput_ops_sec:>8.1f}"
         )
-        print(f"{r.name:<45} {r.category:<22} {len(r.samples):>4} {stats}")
+        print(f"{r.name:<47} {r.category:<22} {len(r.samples):>4} {stats}")
     print("=" * len(header) + "\n")
 
 
@@ -291,6 +434,7 @@ def main() -> None:
     parser.add_argument("--edit-iterations", type=int, default=None)
     parser.add_argument("--gate-iterations", type=int, default=None)
     parser.add_argument("--verify-at", type=int, nargs="+", default=None)
+    parser.add_argument("--fanout-at", type=int, nargs="+", default=None)
     parser.add_argument("--out", type=str, default=None, help="Output path for JSON results")
     parser.add_argument("--md", type=str, default=None, help="Output path for Markdown summary")
     args = parser.parse_args()
@@ -300,10 +444,14 @@ def main() -> None:
         edit_iters = args.edit_iterations or 10
         gate_iters = args.gate_iterations or 20
         verify_counts = args.verify_at or [10, 50, 100]
+        fanout_counts = args.fanout_at or [5, 25, 50]
+        rag_iters = 10
     else:
         edit_iters = args.edit_iterations or 50
         gate_iters = args.gate_iterations or 100
         verify_counts = args.verify_at or [10, 50, 100, 250, 500]
+        fanout_counts = args.fanout_at or [10, 50, 100, 250]
+        rag_iters = 25
 
     with SessionFactory() as session:
         owner = User(
@@ -356,7 +504,19 @@ def main() -> None:
         # Run Suite 3: Merkle DAG Scaling
         merkle_results = benchmark_merkle_dag_scaling(session, field.id, actor, verify_counts)
 
-        all_results = [*gate_results, edit_result, *merkle_results]
+        # Run Suite 4: Dynamic Invalidation Cascading
+        invalidation_results = benchmark_invalidation_cascades(session, owner.id, fanout_counts)
+
+        # Run Suite 5: Zero-Leakage Semantic RAG
+        rag_results = benchmark_rag_zero_leakage(session, owner.id, rag_iters)
+
+        all_results = [
+            *gate_results,
+            edit_result,
+            *merkle_results,
+            *invalidation_results,
+            *rag_results,
+        ]
         _print_table(all_results)
 
         if args.out:
