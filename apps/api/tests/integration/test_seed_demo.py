@@ -78,7 +78,7 @@ class MultiRegimeDemoPolicyClient:
 def test_seed_script_idempotency_and_corpus_generation(engine: Engine) -> None:
     """Verifies that scripts/seed.py executes cleanly, seeds all domains, and is idempotent."""
     env = dict(os.environ)
-    env["OKAPI_DATABASE_URL"] = str(engine.url)
+    env["OKAPI_DATABASE_URL"] = engine.url.render_as_string(hide_password=False)
     cmd = [
         sys.executable,
         "scripts/seed.py",
@@ -141,7 +141,7 @@ def test_demo_multi_actor_workflow_scenarios(
     try:
         # Run seed first to guarantee base users
         env = dict(os.environ)
-        env["OKAPI_DATABASE_URL"] = str(engine.url)
+        env["OKAPI_DATABASE_URL"] = engine.url.render_as_string(hide_password=False)
         cmd = [sys.executable, "scripts/seed.py"]
         subprocess.run(cmd, capture_output=True, check=True, env=env)
 

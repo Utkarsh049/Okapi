@@ -18,7 +18,7 @@ def test_benchmark_harness_execution(engine: Engine, tmp_path: Path) -> None:
     md_out = tmp_path / "test_benchmark_results.md"
 
     env = dict(os.environ)
-    env["OKAPI_DATABASE_URL"] = str(engine.url)
+    env["OKAPI_DATABASE_URL"] = engine.url.render_as_string(hide_password=False)
 
     cmd = [
         sys.executable,
